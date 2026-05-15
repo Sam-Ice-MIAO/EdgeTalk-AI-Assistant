@@ -17,12 +17,14 @@ EdgeTalk-AI-Assistant/
 ├── docs/                   # 技术文档
 └── benchmarks/            # 性能测试数据
 ```
-# 技术栈
-| 层级 | 技术 |
-|-----|------|
-| **硬件** | NVIDIA Jetson Orin Nano Super (8GB) |
-| **语言** | Python 3.10+ |
-| **模型** | Qwen-1.8B/7B (量化), faster-whisper, Piper TTS |
-| **框架** | LangChain, llama.cpp, Hugging Face Transformers |
-| **部署** | Docker, GitHub Actions |
+## 技术栈
+| 模块 | 当前方案 | 状态 |
+|---|---|---|
+| 开发环境 | WSL / Ubuntu 22.04 | 已完成 |
+| 语言 | Python 3.x | 已完成 |
+| ASR | faster-whisper | 已跑通 |
+| LLM | llama-cpp-python + GGUF | 待实现 |
+| TTS | pyttsx3 / Piper TTS | 待实现 |
+| RAG | ChromaDB / FAISS | 计划中 |
+| 部署 | Jetson Orin Nano | 计划中 |
  
