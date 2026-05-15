@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+
 .Python
 build/
 develop-eggs/
@@ -21,7 +22,11 @@ wheels/
 *.egg
 MANIFEST
 
-# PyCharm/VSCode
+# Virtual environment
+venv/
+.env
+
+# PyCharm / VSCode
 .idea/
 .vscode/
 *.swp
@@ -36,13 +41,23 @@ Thumbs.db
 *.csv
 !examples/csv_sales_processor/data/*.csv
 
-# Model weights (EdgeTalk future)
+# Audio files
+audio/*
+!audio/README.md
+
+# Model weights
 *.gguf
 *.safetensors
 *.pt
 *.pth
-models/
+*.bin
+models/*
+!models/README.md
 
 # Logs
 *.log
 logs/
+
+# Cache
+.cache/
+.ipynb_checkpoints/
