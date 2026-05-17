@@ -3,12 +3,10 @@ from pathlib import Path
 
 
 def escape_powershell_string(text: str) -> str:
-    """处理 PowerShell 单引号转义"""
     return text.replace("'", "''")
 
 
 def split_text(text: str):
-    """把长文本拆成短句，减少 TTS 卡顿和吞字"""
     separators = ["。", "！", "？", "；"]
     sentences = []
     current = ""
@@ -87,7 +85,6 @@ $speaker.Dispose()
     script_path.unlink(missing_ok=True)
 
     print("TTS 语音文件生成完成：", output_path)
-
 
 if __name__ == "__main__":
     main()
