@@ -9,7 +9,7 @@ OUTPUT_AUDIO = "audio/reply.wav"
 
 
 def main():
-    print("====== EdgeTalk v0.1 启动 ======")
+    print("====== EdgeTalk v1.0 启动 ======")
 
     asr = WhisperASR(model_size="tiny")
     llm = LocalLLM(model_path=MODEL_PATH)
