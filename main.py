@@ -3,16 +3,19 @@ from src.llm.local_llm import LocalLLM
 from src.tts.windows_tts import WindowsTTS
 
 
-AUDIO_PATH = "audio/test.m4a"
-MODEL_PATH = "models/qwen1.5b.gguf"   
-OUTPUT_AUDIO = "audio/reply.wav"
+from config.settings import (
+    ASR_MODEL_SIZE,
+    AUDIO_INPUT_PATH,
+    AUDIO_OUTPUT_PATH,
+    LLM_MODEL_PATH,
+)
 
 
 def main():
     print("====== EdgeTalk v1.0 启动 ======")
 
-    asr = WhisperASR(model_size="tiny")
-    llm = LocalLLM(model_path=MODEL_PATH)
+    asr = WhisperASR(model_size=ASR_MODEL_SIZE)
+    llm = LocalLLM(model_path=LLM_MODEL_PATH)
     tts = WindowsTTS()
 
     print("\n[1/3] ASR：正在识别语音...")
@@ -30,7 +33,7 @@ def main():
         return
 
     print("\n[3/3] TTS：正在生成语音...")
-    tts.synthesize(reply, OUTPUT_AUDIO)
+    tts.synthesize(reply, AUDIO_OUTPUT_PATH)
 
     print("\n====== EdgeTalk v0.1 运行完成 ======")
     print("用户语音识别结果:", user_text)
