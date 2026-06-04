@@ -1,0 +1,11 @@
+EdgeTalk 是一个本地运行的 AI 语音助手原型项目。
+
+当前版本已经实现基础链路：Audio → ASR → Local LLM → TTS → Audio。
+
+ASR 模块使用 faster-whisper，将用户语音转换为文本。
+
+LLM 模块使用 llama-cpp-python 加载本地 GGUF 模型，用于生成中文回复。
+
+TTS 模块在 WSL 环境中调用 Windows System.Speech，将回复文本转换为 wav 音频文件。
+
+项目已经支持命令行运行和 FastAPI 接口调用，当前接口包括 /health、/chat 和 /voice-chat。
