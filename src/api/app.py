@@ -6,12 +6,13 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from src.pipeline import EdgeTalkPipeline
+from src.rag.simple_retriever import SimpleRetriever
 
 
 app = FastAPI(
     title="EdgeTalk API",
     description="Local AI assistant API for EdgeTalk",
-    version="1.0.0"
+    version="0.2.0"
 )
 
 
@@ -22,11 +23,19 @@ class ChatRequest(BaseModel):
     text: str
 
 
+class RagChatRequest(BaseModel):
+    text: str
+    top_k: int = 2
+    min_score: float = 0.08
+    knowledge_dir: str = "data/knowledge"
+
+
 @app.get("/health")
 def health_check():
     return {
         "status": "ok",
-        "service": "EdgeTalk API"
+        "service": "EdgeTalk API",
+        "version": "0.2.0"
     }
 
 
@@ -61,6 +70,44 @@ async def voice_chat(file: UploadFile = File(...)):
     try:
         result = pipeline.run_audio_pipeline(str(input_path))
         return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/rag-chat")
+def rag_chat(request: RagChatRequest):
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="text cannot be empty")
+
+    try:
+        retriever = SimpleRetriever(request.knowledge_dir)
+
+        results = retriever.retrieve(
+            query=request.text,
+            top_k=request.top_k,
+            min_score=request.min_score
+        )
+
+        if not results:
+            return {
+                "input": request.text,
+                "reply": "知识库中没有检索到足够相关的内容。",
+                "retrieved": []
+            }
+
+        context = "\n\n".join([item["text"] for item in results])
+
+        reply = pipeline.generate_reply(
+            user_text=request.text,
+            context=context
+        )
+
+        return {
+            "input": request.text,
+            "reply": reply,
+            "retrieved": results
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
