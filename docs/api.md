@@ -8,3 +8,13 @@
 
 ```bash
 uvicorn src.api.app:app --host 0.0.0.0 --port 8000
+
+## `/voice-chat`
+
+语音问答接口，支持上传音频文件。
+
+示例：
+
+```bash
+curl -X POST http://127.0.0.1:8000/voice-chat \
+  -F "file=@audio/test.m4a"
