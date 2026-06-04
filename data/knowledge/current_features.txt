@@ -1,0 +1,10 @@
+EdgeTalk 当前已经实现的功能包括：
+
+1. 支持通过命令行读取本地音频文件。
+2. 支持使用 faster-whisper 将语音转换为文本。
+3. 支持使用 llama-cpp-python 加载本地 GGUF 模型生成中文回复。
+4. 支持使用 TTS 模块将回复文本转换为 wav 音频。
+5. 支持 ASR → Local LLM → TTS 的完整语音助手链路。
+6. 支持 FastAPI 服务化接口，包括 /health、/chat 和 /voice-chat。
+7. 支持基础耗时统计和异常处理。
+
