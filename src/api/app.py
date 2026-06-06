@@ -7,16 +7,18 @@ from pydantic import BaseModel
 
 from src.pipeline import EdgeTalkPipeline
 from src.rag.simple_retriever import SimpleRetriever
+from src.agent.agent_core import AgentCore
 
 
 app = FastAPI(
     title="EdgeTalk API",
     description="Local AI assistant API for EdgeTalk",
-    version="0.2.0"
+    version="0.3.0"
 )
 
 
 pipeline = EdgeTalkPipeline()
+agent = AgentCore(pipeline=pipeline)
 
 
 class ChatRequest(BaseModel):
@@ -30,12 +32,16 @@ class RagChatRequest(BaseModel):
     knowledge_dir: str = "data/knowledge"
 
 
+class AgentChatRequest(BaseModel):
+    text: str
+
+
 @app.get("/health")
 def health_check():
     return {
         "status": "ok",
         "service": "EdgeTalk API",
-        "version": "0.2.0"
+        "version": "3.0.0"
     }
 
 
@@ -108,6 +114,19 @@ def rag_chat(request: RagChatRequest):
             "reply": reply,
             "retrieved": results
         }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/agent-chat")
+def agent_chat(request: AgentChatRequest):
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="text cannot be empty")
+
+    try:
+        result = agent.run(request.text)
+        return result
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

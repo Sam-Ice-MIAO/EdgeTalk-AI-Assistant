@@ -22,3 +22,35 @@
 1.list_knowledge_files ：作用：列出data/knowledge 目录下的知识库文件
 2.search_knowledge ：作用：调用已有的SimpleRetriever，在本地知识库中检索相关内容
 3.get_projects_status：作用：返回 EdgeTalk 当前项目状态说明
+
+## 6. AgentCore 调度逻辑
+
+当前已实现 `AgentCore`，用于根据用户问题选择本地工具。
+
+当前规则：
+
+| 用户问题类型 | 使用工具 |
+|---|---|
+| 询问知识库文件 | `list_knowledge_files` |
+| 询问 EdgeTalk 功能、计划、RAG、接口等 | `search_knowledge` |
+| 询问项目状态 | `get_project_status` |
+| 其他普通问题 | `chat` |
+
+## 7. 接入 FastAPI
+
+当前已将 AgentCore 接入 FastAPI，新增 `/agent-chat` 接口。
+
+接口流程：
+
+```text
+用户问题
+↓
+/agent-chat
+↓
+AgentCore 判断工具
+↓
+调用本地工具
+↓
+工具结果作为上下文
+↓
+LocalLLM 生成最终回答

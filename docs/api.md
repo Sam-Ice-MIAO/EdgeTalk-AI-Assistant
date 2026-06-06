@@ -33,3 +33,16 @@ curl -X POST http://127.0.0.1:8000/rag-chat \
   -d '{"text":"EdgeTalk 当前实现了哪些功能？","top_k":2,"min_score":0.08}'
 
 返回内容包括：用户问题、本地 LLM 回复，检索到的知识库文本块，每个文本块的来源、编号和相似度分数
+
+## `/agent-chat`
+
+轻量 Agent 问答接口。
+
+该接口会根据用户问题选择是否调用本地工具，例如知识库文件列表、知识库检索或项目状态查询。
+
+### 请求示例
+
+```bash
+curl -X POST http://127.0.0.1:8000/agent-chat \
+  -H "Content-Type: application/json" \
+  -d '{"text":"知识库里有哪些文档？"}'
