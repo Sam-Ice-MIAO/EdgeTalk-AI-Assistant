@@ -34,7 +34,7 @@ class RagChatRequest(BaseModel):
 
 class AgentChatRequest(BaseModel):
     text: str
-
+    session_id:str = "default"
 
 @app.get("/health")
 def health_check():
@@ -125,7 +125,7 @@ def agent_chat(request: AgentChatRequest):
         raise HTTPException(status_code=400, detail="text cannot be empty")
 
     try:
-        result = agent.run(request.text)
+        result = agent.run(user_text=request.text,session_id=request.session_id)
         return result
 
     except Exception as e:
@@ -144,3 +144,15 @@ def get_audio(filename: str):
         media_type="audio/wav",
         filename=filename
     )
+@app.get("/memory/{session_id}")
+def get_memory(session_id: str, limit: int = 20):
+    messages = agent.memory.get_recent_messages(
+        session_id=session_id,
+        limit=limit,
+    )
+
+    return {
+        "session_id": session_id,
+        "count": len(messages),
+        "messages": messages,
+    }

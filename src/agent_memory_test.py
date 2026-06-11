@@ -4,7 +4,7 @@ from src.agent.agent_core import AgentCore
 def main():
     agent = AgentCore()
 
-    session_id = "day3_memory_test"
+    session_id = "factory_line_01"
 
     questions = [
         "E03 报警是什么意思？",
