@@ -29,7 +29,7 @@ class RagChatRequest(BaseModel):
     text: str
     top_k: int = 2
     min_score: float = 0.08
-    knowledge_dir: str = "data/knowledge"
+    knowledge_dir: str = "data/knowledge/industrial"
 
 
 class AgentChatRequest(BaseModel):

@@ -2,32 +2,25 @@ from pathlib import Path
 
 
 def load_text_files(knowledge_dir: str):
-    knowledge_path = Path(knowledge_dir)
+    base_dir = Path(knowledge_dir)
 
-    if not knowledge_path.exists():
-        raise FileNotFoundError(f"知识库目录不存在: {knowledge_dir}")
+    if not base_dir.exists():
+        raise FileNotFoundError(f"Knowledge directory not found: {knowledge_dir}")
 
     documents = []
 
-    for file_path in knowledge_path.glob("*.txt"):
-        text = file_path.read_text(encoding="utf-8").strip()
-
-        if text:
-            documents.append({
-                "source": str(file_path),
-                "text": text
-            })
+    for file_path in base_dir.rglob("*.txt"):
+        text = file_path.read_text(encoding="utf-8")
+        documents.append({
+            "source": str(file_path),
+            "text": text
+        })
 
     return documents
 
 
 def split_text(text: str, chunk_size: int = 200, overlap: int = 50):
     chunks = []
-    text = text.strip()
-
-    if not text:
-        return chunks
-
     start = 0
 
     while start < len(text):
@@ -48,21 +41,16 @@ def load_and_split_documents(
     overlap: int = 50
 ):
     documents = load_text_files(knowledge_dir)
-
-    all_chunks = []
+    chunks = []
 
     for doc in documents:
-        chunks = split_text(
-            doc["text"],
-            chunk_size=chunk_size,
-            overlap=overlap
-        )
+        text_chunks = split_text(doc["text"], chunk_size, overlap)
 
-        for idx, chunk in enumerate(chunks):
-            all_chunks.append({
+        for index, chunk_text in enumerate(text_chunks):
+            chunks.append({
                 "source": doc["source"],
-                "chunk_id": idx,
-                "text": chunk
+                "chunk_id": index,
+                "text": chunk_text
             })
 
-    return all_chunks
+    return chunks

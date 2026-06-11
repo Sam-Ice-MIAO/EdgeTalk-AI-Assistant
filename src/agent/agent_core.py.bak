@@ -58,15 +58,15 @@ class AgentCore:
 
         if tool_name == "list_knowledge_files":
             tool_result = list_knowledge_files(self.knowledge_dir)
-            files = tool_result.get("files", [])
+        files = tool_result.get("files",[])
             answer = "知识库中共有以下文档：\n" + "\n".join(
                 [f"- {file}" for file in files]
             )
             return {
-                "input": user_text,
-                "tool_used": tool_name,
-                "tool_result": tool_result,
-                "answer": answer,
+                "input":user_text,
+                "tool_used":tool_name,
+                "tool_result":tool_result,
+                "answer":answer
             }
 
         elif tool_name == "search_knowledge":
