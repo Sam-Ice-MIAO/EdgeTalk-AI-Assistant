@@ -1,0 +1,14 @@
+.git
+.venv
+.venv311
+venv
+__pycache__
+*.pyc
+
+audio/*
+models/*
+data/memory/*.db
+
+logs
+*.log
+.ipynb_checkpoints

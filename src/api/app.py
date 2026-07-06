@@ -1,4 +1,6 @@
-from fastapi import FastAPI, HTTPException
+import time
+
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
 from src.rag.simple_retriever import SimpleRetriever
@@ -12,7 +14,7 @@ app = FastAPI(
     version="3.1.0",
 )
 
-# 第八周轻量模式：不加载完整 Pipeline，避免 ASR / TTS / LLM 依赖影响 RAG 测试
+# 第八 / 第九周轻量模式：不加载完整 Pipeline，避免 ASR / TTS / LLM 依赖影响 RAG 测试
 pipeline = None
 agent = AgentCore(pipeline=None)
 
@@ -37,12 +39,24 @@ class AgentChatRequest(BaseModel):
     session_id: str = "default"
 
 
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.perf_counter()
+    response = await call_next(request)
+    process_time = time.perf_counter() - start_time
+
+    response.headers["X-Process-Time"] = str(round(process_time, 4))
+
+    print(
+        f"{request.method} {request.url.path} "
+        f"status={response.status_code} "
+        f"time={process_time:.4f}s"
+    )
+
+    return response
+
+
 def get_retriever(retriever_type: str, knowledge_dir: str):
-    """
-    根据 retriever_type 获取检索器。
-    embedding：语义检索
-    tfidf：关键词检索 baseline
-    """
     retriever_type = retriever_type.lower().strip()
     cache_key = f"{retriever_type}:{knowledge_dir}"
 
@@ -123,7 +137,6 @@ def rag_chat(request: RagChatRequest):
 
         context = "\n\n".join(item["text"] for item in results)
 
-        # 当前轻量模式不调用 LLM，只返回精简后的知识库片段
         reply = "根据知识库检索结果，相关内容如下：\n" + context[:600]
 
         return {
