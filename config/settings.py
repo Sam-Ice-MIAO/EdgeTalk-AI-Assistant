@@ -1,6 +1,6 @@
 # config/settings.py
 
-ASR_MODEL_SIZE = "tiny"
+ASR_MODEL_SIZE = "small"
 
 AUDIO_INPUT_PATH = "audio/test.m4a"
 AUDIO_OUTPUT_PATH = "audio/reply.wav"

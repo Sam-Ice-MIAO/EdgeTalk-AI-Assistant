@@ -1,7 +1,49 @@
+import re
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from src.rag.document_loader import load_and_split_documents
+
+
+def calculate_boost(query: str, source: str, text: str) -> float:
+    query_lower = query.lower()
+    source_lower = source.lower()
+    text_lower = text.lower()
+
+    boost = 0.0
+
+    # 精确故障码匹配：例如问 E03，就优先匹配包含 E03 的 chunk
+    code_match = re.search(r"e\d{2}", query_lower)
+
+    if code_match:
+        code = code_match.group()
+
+        if code in text_lower:
+            boost += 0.45
+        elif "fault_codes" in source_lower:
+            boost += 0.05
+        else:
+            boost -= 0.15
+
+    # 维修 / 更换 / SOP 类问题
+    sop_keywords = ["更换", "维修", "sop", "步骤", "准备", "检修"]
+    if any(word in query_lower for word in sop_keywords):
+        if "maintenance_sop" in source_lower:
+            boost += 0.20
+
+    # 点检 / 巡检类问题
+    inspection_keywords = ["点检", "巡检", "检查项目", "每日", "每周"]
+    if any(word in query_lower for word in inspection_keywords):
+        if "inspection_checklist" in source_lower:
+            boost += 0.20
+
+    # 安全类问题
+    safety_keywords = ["安全", "断电", "防护", "气源", "危险", "维修设备前"]
+    if any(word in query_lower for word in safety_keywords):
+        if "safety_rules" in source_lower:
+            boost += 0.20
+
+    return boost
 
 
 class EmbeddingRetriever:
@@ -9,7 +51,7 @@ class EmbeddingRetriever:
         self,
         knowledge_dir: str = "data/knowledge/industrial",
         model_name: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-        chunk_size: int = 200,
+        chunk_size: int = 500,
         overlap: int = 50,
     ):
         self.knowledge_dir = knowledge_dir
@@ -29,25 +71,35 @@ class EmbeddingRetriever:
             normalize_embeddings=True,
         )
 
-    def retrieve(self, query: str, top_k: int = 3, min_score: float = 0.30):
+    def retrieve(self, query: str, top_k: int = 1, min_score: float = 0.30):
         query_embedding = self.model.encode(
             [query],
             normalize_embeddings=True,
         )[0]
 
-        scores = np.dot(self.embeddings, query_embedding)
+        raw_scores = np.dot(self.embeddings, query_embedding)
 
         results = []
 
-        for index, score in enumerate(scores):
-            score = float(score)
+        for index, raw_score in enumerate(raw_scores):
+            raw_score = float(raw_score)
+            chunk = self.chunks[index]
 
-            if score >= min_score:
-                chunk = self.chunks[index]
+            boost = calculate_boost(
+                query=query,
+                source=chunk["source"],
+                text=chunk["text"],
+            )
+
+            final_score = raw_score + boost
+
+            if final_score >= min_score:
                 results.append({
                     "source": chunk["source"],
                     "chunk_id": chunk["chunk_id"],
-                    "score": score,
+                    "score": final_score,
+                    "raw_score": raw_score,
+                    "boost": boost,
                     "text": chunk["text"],
                 })
 
@@ -74,10 +126,12 @@ if __name__ == "__main__":
         print("=" * 80)
         print("问题：", question)
 
-        results = retriever.retrieve(question, top_k=2)
+        results = retriever.retrieve(question, top_k=1)
 
         for item in results:
             print("-" * 80)
             print("来源：", item["source"])
-            print("分数：", round(item["score"], 4))
-            print("内容：", item["text"][:200])
+            print("最终分数：", round(item["score"], 4))
+            print("原始分数：", round(item["raw_score"], 4))
+            print("boost：", round(item["boost"], 4))
+            print("内容：", item["text"][:300])

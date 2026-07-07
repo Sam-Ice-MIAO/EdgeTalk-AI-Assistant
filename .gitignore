@@ -3,10 +3,19 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-.Python
+# Virtual environment
+venv/
+.venv/
+.venv311/
+env/
+.env
+
+# Build files
 build/
-develop-eggs/
 dist/
 downloads/
 eggs/
@@ -22,11 +31,7 @@ wheels/
 *.egg
 MANIFEST
 
-# Virtual environment
-venv/
-.env
-
-# PyCharm / VSCode
+# IDE
 .idea/
 .vscode/
 *.swp
@@ -50,18 +55,22 @@ audio/*
 !audio/README.md
 
 # Model weights
+models/*
+!models/README.md
 *.gguf
 *.safetensors
 *.pt
 *.pth
 *.bin
-models/*
-!models/README.md
 
 # Logs
-*.log
 logs/
+*.log
 
-# Cache
+# Docker / runtime cache
 .cache/
-.ipynb_checkpoints/
+.huggingface/
+hf_cache/
+
+# Temporary backup files
+*.bak

@@ -2,7 +2,7 @@ from faster_whisper import WhisperModel
 
 
 class WhisperASR:
-    def __init__(self, model_size: str = "tiny"):
+    def __init__(self, model_size: str = "small"):
         self.model_size = model_size
         self.model = WhisperModel(
             model_size,
