@@ -1,0 +1,35 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: edgetalk-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: edgetalk123
+      MYSQL_DATABASE: edgetalk
+    ports:
+      - "3306:3306"
+    volumes:
+      - edgetalk_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pedgetalk123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: edgetalk-api
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      MEMORY_BACKEND: mysql
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASSWORD: edgetalk123
+      MYSQL_DATABASE: edgetalk
+    ports:
+      - "8000:8000"
+
+volumes:
+  edgetalk_mysql_data:
