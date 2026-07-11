@@ -3,7 +3,7 @@ from src.agent.tools import (
     search_knowledge,
     get_project_status,
 )
-from src.memory.sqlite_memory import SQLiteMemory
+from src.memory.memory_factory import get_memory
 
 
 class AgentCore:
@@ -14,7 +14,7 @@ class AgentCore:
     ):
         self.pipeline = pipeline
         self.knowledge_dir = knowledge_dir
-        self.memory = SQLiteMemory()
+        self.memory = get_memory()
 
     def select_tool(self, user_text: str) -> str:
         text = user_text.lower()
