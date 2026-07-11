@@ -92,96 +92,168 @@ EdgeTalk-AI-Assistant/
 ├── requirements.txt
 ├── requirements-api.txt
 └── README.md
+```
+
+---
 
 ## 5. 快速开始
 
 ### 5.1 克隆项目
 
+```bash
 git clone https://github.com/你的用户名/EdgeTalk-AI-Assistant.git
 cd EdgeTalk-AI-Assistant
+```
 
 ### 5.2 创建虚拟环境
 
+```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
+```
 
-### 5.3 安装轻量API依赖
+### 5.3 安装轻量 API 依赖
 
+```bash
 pip install -r requirements-api.txt
+```
 
-### 5.4 启动FastAPI服务
+### 5.4 启动 FastAPI 服务
 
+```bash
 python -m uvicorn src.api.app:app --host 0.0.0.0 --port 8000
+```
 
 测试服务：
 
+```bash
 curl http://127.0.0.1:8000/health
+```
 
-## 6.API示例
+---
 
-RAG问答：
+## 6. API 示例
+
+### 6.1 RAG 问答
+
+```bash
 curl -X POST "http://127.0.0.1:8000/rag-chat" \
   -H "Content-Type: application/json" \
   -d '{"question": "E03 报警是什么意思？", "retriever_type": "embedding"}'
+```
 
-Agent问答：
+### 6.2 Agent 问答
+
+```bash
 curl -X POST "http://127.0.0.1:8000/agent-chat" \
   -H "Content-Type: application/json" \
   -d '{"message": "更换传感器之前需要注意什么？", "session_id": "demo_session"}'
+```
 
-查询会话记忆：
+### 6.3 查询会话记忆
+
+```bash
 curl http://127.0.0.1:8000/memory/demo_session
+```
 
-## 7. Docker部署
+---
+
+## 7. Docker 部署
 
 ### 7.1 构建镜像
 
+```bash
 docker build -t edgetalk-api .
+```
 
-### 7.2启动API
+### 7.2 启动 API
 
+```bash
 docker run --rm -p 8000:8000 edgetalk-api
+```
 
-### 7.3使用Docker Compose 启动API+MySQL
+### 7.3 使用 Docker Compose 启动 API + MySQL
 
+```bash
 docker compose up --build
-如果本机环境不支持docker compose，可以使用：docker-compose up --build
+```
 
-## 8.本地LLM于语音链路
+如果本机环境不支持 `docker compose`，可以使用：
 
-完整语音链路需要额外安装完整依赖：pip install -r requirements.txt
-模型文件不会上传到Github，需要自行下载GGUF模型并放入：models/qwen1.5b.gguf
-文本模式测试：python main.py --text "E03 报警是什么意思？"
-音频文件模式测试：python main.py --audio audio/test.m4a
-完整链路包括：语音输入 → ASR → Agent → RAG → LLM → Memory → TTS
+```bash
+docker-compose up --build
+```
 
-## 9.当前完成情况
+---
 
-| 能力                     | 状态   |
-| ---------------------- | ---- |
-| 工业知识库                  | 已完成  |
-| TF-IDF RAG             | 已完成  |
-| Embedding RAG          | 已完成  |
-| Agent 工具路由             | 已完成  |
-| SQLite Memory          | 已完成  |
-| MySQL Memory           | 已完成  |
-| FastAPI 服务             | 已完成  |
-| Docker 部署              | 已完成  |
-| Docker Compose + MySQL | 已完成  |
-| ASR / LLM / TTS 完整链路   | 已完成  |
-| Jetson Orin Nano 部署    | 后续计划 |
+## 8. 本地 LLM 与语音链路
 
-## 10.项目亮点
+完整语音链路需要额外安装完整依赖：
 
-1.面向工业设备维护场景，不是泛用聊天机器人
-2.结合RAG、Agent、Memory，形成完整企业知识库问答链路
-3.支持 SQLite 与 MySQL 两种记忆后端，兼顾本地 Demo 与云端部署思路
-4.提供 FastAPI 接口和 Docker Compose 部署方式，便于后续 PoC 测试
-5.支持 ASR 到 TTS 的完整语音助手链路，为后续边缘设备部署做准备。
+```bash
+pip install -r requirements.txt
+```
 
-## 11.后续计划
+模型文件不会上传到 GitHub，需要自行下载 GGUF 模型并放入：
 
-部署到 Jetson Orin Nano，验证边缘端运行效果；
-替换 Jetson 可用的 Linux TTS 方案；
-结合工业场景扩展更多故障案例和维修流程。
+```text
+models/qwen1.5b.gguf
+```
+
+文本模式测试：
+
+```bash
+python main.py --text "E03 报警是什么意思？"
+```
+
+音频文件模式测试：
+
+```bash
+python main.py --audio audio/test.m4a
+```
+
+完整链路包括：
+
+```text
+语音输入 → ASR → Agent → RAG → LLM → Memory → TTS
+```
+
+---
+
+## 9. 当前完成情况
+
+| 能力 | 状态 |
+|---|---|
+| 工业知识库 | 已完成 |
+| TF-IDF RAG | 已完成 |
+| Embedding RAG | 已完成 |
+| Agent 工具路由 | 已完成 |
+| SQLite Memory | 已完成 |
+| MySQL Memory | 已完成 |
+| FastAPI 服务 | 已完成 |
+| Docker 部署 | 已完成 |
+| Docker Compose + MySQL | 已完成 |
+| ASR / LLM / TTS 完整链路 | 已完成 |
+| Jetson Orin Nano 部署 | 后续计划 |
+
+---
+
+## 10. 项目亮点
+
+1. 面向工业设备维护场景，而不是泛用聊天机器人；
+2. 结合 RAG、Agent、Memory，形成完整企业知识库问答链路；
+3. 支持 SQLite 与 MySQL 两种记忆后端，兼顾本地 Demo 与云端部署思路；
+4. 提供 FastAPI 接口和 Docker Compose 部署方式，便于后续 PoC 测试；
+5. 支持 ASR 到 TTS 的完整语音助手链路，为后续边缘设备部署做准备。
+
+---
+
+## 11. 后续计划
+
+- 部署到 Jetson Orin Nano，验证边缘端运行效果；
+- 替换 Jetson 可用的 Linux TTS 方案；
+- 增加 PoC 测试报告生成工具；
+- 增加接口性能评估和成本估算能力；
+- 结合工业场景扩展更多故障案例和维修流程。
+
