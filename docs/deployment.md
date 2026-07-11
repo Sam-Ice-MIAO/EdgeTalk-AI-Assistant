@@ -67,3 +67,17 @@ Docker 容器运行；
 /agent-chat 接口测试；
 /memory 接口测试。
 EdgeTalk 已经具备基础容器化部署能力，可以作为轻量级 AI API 服务运行。
+
+## 4. MySQL Memory 可选部署
+
+EdgeTalk 默认使用 SQLite 保存会话记忆，适合本地 Demo、离线部署和 Jetson 边缘设备场景。
+
+如果部署到云服务器或需要更接近生产环境，可以通过环境变量切换到 MySQL：
+
+```bash
+MEMORY_BACKEND=mysql
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASSWORD=edgetalk123
+MYSQL_DATABASE=edgetalk
