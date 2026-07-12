@@ -79,9 +79,8 @@ EdgeTalk-AI-Assistant/
 ├── docs/
 │   ├── architecture.md
 │   ├── deployment.md
-│   ├── rag_eval.md
-│   ├── problems_and_solutions.md
-│   └── project_positioning.md
+│   ├── customer_needs.md
+│   ├── archive.md
 ├── examples/
 ├── models/
 │   └── README.md
