@@ -140,7 +140,7 @@ curl http://127.0.0.1:8000/health
 ```bash
 curl -X POST "http://127.0.0.1:8000/rag-chat" \
   -H "Content-Type: application/json" \
-  -d '{"question": "E03 报警是什么意思？", "retriever_type": "embedding"}'
+  -d '{"text": "E03 报警是什么意思？", "retriever_type": "embedding"}'
 ```
 
 ### 6.2 Agent 问答
@@ -148,7 +148,7 @@ curl -X POST "http://127.0.0.1:8000/rag-chat" \
 ```bash
 curl -X POST "http://127.0.0.1:8000/agent-chat" \
   -H "Content-Type: application/json" \
-  -d '{"message": "更换传感器之前需要注意什么？", "session_id": "demo_session"}'
+  -d '{"text": "每日点检需要检查哪些项目？", "session_id": "demo_session"}'
 ```
 
 ### 6.3 查询会话记忆
@@ -176,13 +176,13 @@ docker run --rm -p 8000:8000 edgetalk-api
 ### 7.3 使用 Docker Compose 启动 API + MySQL
 
 ```bash
-docker compose up --build
+docker-compose up --build
 ```
 
-如果本机环境不支持 `docker compose`，可以使用：
+如果本机支持新版 Docker Compose 插件，可以使用：
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 ---
