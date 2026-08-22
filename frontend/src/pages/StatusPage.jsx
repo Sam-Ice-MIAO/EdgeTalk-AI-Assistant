@@ -1,7 +1,4 @@
-import {
-  useEffect,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 
 import {
   Alert,
@@ -24,9 +21,7 @@ function StatusPage() {
   useEffect(() => {
     async function fetchHealth() {
       try {
-        const response =
-          await apiClient.get("/health");
-
+        const response = await apiClient.get("/health");
         setHealth(response.data);
       } catch (err) {
         console.error(err);
@@ -57,8 +52,23 @@ function StatusPage() {
     );
   }
 
-  const components =
-    health?.components || {};
+  const components = health?.components || {};
+
+  function getStatusColor(status) {
+    if (status === "ready") {
+      return "green";
+    }
+
+    if (status === "error") {
+      return "red";
+    }
+
+    if (status === "model_missing") {
+      return "orange";
+    }
+
+    return "default";
+  }
 
   return (
     <div>
@@ -67,14 +77,11 @@ function StatusPage() {
       </Typography.Title>
 
       <Typography.Paragraph type="secondary">
-        EdgeTalk Pro 后端服务和核心组件运行状态。
+        EdgeTalk Pro 后端服务和核心 AI 组件运行状态。
       </Typography.Paragraph>
 
       <Row gutter={[16, 16]}>
-        <Col
-          xs={24}
-          md={8}
-        >
+        <Col xs={24} md={8}>
           <Card>
             <Statistic
               title="Service"
@@ -83,10 +90,7 @@ function StatusPage() {
           </Card>
         </Col>
 
-        <Col
-          xs={24}
-          md={8}
-        >
+        <Col xs={24} md={8}>
           <Card>
             <Statistic
               title="Version"
@@ -95,10 +99,7 @@ function StatusPage() {
           </Card>
         </Col>
 
-        <Col
-          xs={24}
-          md={8}
-        >
+        <Col xs={24} md={8}>
           <Card>
             <Statistic
               title="Status"
@@ -114,38 +115,123 @@ function StatusPage() {
       >
         <Row gutter={[16, 20]}>
           <Col xs={24} md={8}>
-            API{" "}
-            <Tag color="green">
+            <Typography.Text strong>
+              API
+            </Typography.Text>{" "}
+            <Tag
+              color={getStatusColor(
+                components.api
+              )}
+            >
               {components.api || "unknown"}
             </Tag>
           </Col>
 
           <Col xs={24} md={8}>
-            RAG{" "}
-            <Tag color="green">
+            <Typography.Text strong>
+              RAG
+            </Typography.Text>{" "}
+            <Tag
+              color={getStatusColor(
+                components.rag
+              )}
+            >
               {components.rag || "unknown"}
             </Tag>
           </Col>
 
           <Col xs={24} md={8}>
-            Agent{" "}
-            <Tag color="green">
+            <Typography.Text strong>
+              Agent
+            </Typography.Text>{" "}
+            <Tag
+              color={getStatusColor(
+                components.agent
+              )}
+            >
               {components.agent || "unknown"}
             </Tag>
           </Col>
 
           <Col xs={24} md={8}>
-            Retriever{" "}
-            <Tag color="blue">
-              {components.retriever || "unknown"}
+            <Typography.Text strong>
+              LLM
+            </Typography.Text>{" "}
+            <Tag
+              color={getStatusColor(
+                components.llm
+              )}
+            >
+              {components.llm || "unknown"}
             </Tag>
           </Col>
 
           <Col xs={24} md={8}>
-            Memory{" "}
+            <Typography.Text strong>
+              Retriever
+            </Typography.Text>{" "}
+            <Tag color="blue">
+              {components.retriever ||
+                "unknown"}
+            </Tag>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Typography.Text strong>
+              Memory
+            </Typography.Text>{" "}
             <Tag color="blue">
               {components.memory || "unknown"}
             </Tag>
+          </Col>
+        </Row>
+      </Card>
+
+      <Card
+        title="AI Runtime"
+        style={{ marginTop: 20 }}
+      >
+        <Row gutter={[16, 20]}>
+          <Col xs={24} md={8}>
+            <Typography.Text strong>
+              Local Model
+            </Typography.Text>
+
+            <div style={{ marginTop: 8 }}>
+              <Tag color="geekblue">
+                {health?.model ||
+                  "Not Loaded"}
+              </Tag>
+            </div>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Typography.Text strong>
+              LLM Status
+            </Typography.Text>
+
+            <div style={{ marginTop: 8 }}>
+              <Tag
+                color={getStatusColor(
+                  components.llm
+                )}
+              >
+                {components.llm ||
+                  "unknown"}
+              </Tag>
+            </div>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Typography.Text strong>
+              API Mode
+            </Typography.Text>
+
+            <div style={{ marginTop: 8 }}>
+              <Tag>
+                {health?.mode || "-"}
+              </Tag>
+            </div>
           </Col>
         </Row>
       </Card>

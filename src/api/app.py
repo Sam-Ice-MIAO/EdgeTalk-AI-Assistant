@@ -1,19 +1,36 @@
-import time
 import os
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, HTTPException, Request
-from pydantic import BaseModel
+import time
+
 from pathlib import Path
+
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    Request,
+)
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+from config.settings import LLM_MODEL_PATH
+
+from src.agent.agent_core import AgentCore
 from src.rag.simple_retriever import SimpleRetriever
 from src.rag.embedding_retriever import EmbeddingRetriever
-from src.agent.agent_core import AgentCore
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 app = FastAPI(
-    title="EdgeTalk API",
-    description="Lightweight API for EdgeTalk RAG and Agent testing",
-    version="3.1.0",
+    title="EdgeTalk Pro API",
+    description=(
+        "Industrial maintenance AI assistant "
+        "with RAG, Agent, Local LLM and Memory"
+    ),
+    version="pro-0.2",
 )
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -25,11 +42,65 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 第八 / 第九周轻量模式：不加载完整 Pipeline，避免 ASR / TTS / LLM 依赖影响 RAG 测试
-pipeline = None
-agent = AgentCore(pipeline=None)
 
-# 简单缓存，避免每次请求都重新加载 embedding 模型
+def create_local_llm():
+    configured_path = os.getenv(
+        "LLM_MODEL_PATH",
+        LLM_MODEL_PATH,
+    )
+
+    model_path = Path(configured_path)
+
+    if not model_path.is_absolute():
+        model_path = PROJECT_ROOT / model_path
+
+    if not model_path.exists():
+        print(
+            f"Local LLM model not found: {model_path}"
+        )
+        return None, "model_missing", None
+
+    try:
+        # 延迟导入：
+        # Docker 轻量镜像没有 llama-cpp-python 时
+        # FastAPI 仍然可以启动
+        from src.llm.local_llm import LocalLLM
+
+        llm = LocalLLM(
+            model_path=str(model_path),
+            n_ctx=2048,
+            n_threads=6,
+        )
+
+        print(
+            f"Local LLM loaded: {model_path.name}"
+        )
+
+        return (
+            llm,
+            "ready",
+            model_path.name,
+        )
+
+    except Exception as exc:
+        print(
+            f"Local LLM load failed: {exc}"
+        )
+
+        return None, "error", None
+
+
+local_llm, llm_status, llm_model_name = (
+    create_local_llm()
+)
+
+
+agent = AgentCore(
+    pipeline=None,
+    llm=local_llm,
+)
+
+
 _retriever_cache = {}
 
 
@@ -42,7 +113,9 @@ class RagChatRequest(BaseModel):
     top_k: int = 1
     min_score: float = 0.08
     retriever_type: str = "embedding"
-    knowledge_dir: str = "data/knowledge/industrial"
+    knowledge_dir: str = (
+        "data/knowledge/industrial"
+    )
 
 
 class AgentChatRequest(BaseModel):
@@ -51,12 +124,21 @@ class AgentChatRequest(BaseModel):
 
 
 @app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
+async def add_process_time_header(
+    request: Request,
+    call_next,
+):
     start_time = time.perf_counter()
-    response = await call_next(request)
-    process_time = time.perf_counter() - start_time
 
-    response.headers["X-Process-Time"] = str(round(process_time, 4))
+    response = await call_next(request)
+
+    process_time = (
+        time.perf_counter() - start_time
+    )
+
+    response.headers["X-Process-Time"] = str(
+        round(process_time, 4)
+    )
 
     print(
         f"{request.method} {request.url.path} "
@@ -67,9 +149,17 @@ async def add_process_time_header(request: Request, call_next):
     return response
 
 
-def get_retriever(retriever_type: str, knowledge_dir: str):
-    retriever_type = retriever_type.lower().strip()
-    cache_key = f"{retriever_type}:{knowledge_dir}"
+def get_retriever(
+    retriever_type: str,
+    knowledge_dir: str,
+):
+    retriever_type = (
+        retriever_type.lower().strip()
+    )
+
+    cache_key = (
+        f"{retriever_type}:{knowledge_dir}"
+    )
 
     if cache_key in _retriever_cache:
         return _retriever_cache[cache_key]
@@ -78,48 +168,170 @@ def get_retriever(retriever_type: str, knowledge_dir: str):
         retriever = EmbeddingRetriever(
             knowledge_dir=knowledge_dir,
         )
+
     elif retriever_type == "tfidf":
         retriever = SimpleRetriever(
             knowledge_dir=knowledge_dir,
         )
+
     else:
         raise HTTPException(
             status_code=400,
-            detail="retriever_type must be 'embedding' or 'tfidf'",
+            detail=(
+                "retriever_type must be "
+                "'embedding' or 'tfidf'"
+            ),
         )
 
     _retriever_cache[cache_key] = retriever
+
     return retriever
+
+
+def normalize_sources(results):
+    sources = []
+
+    if not isinstance(results, list):
+        return sources
+
+    for item in results:
+        if not isinstance(item, dict):
+            continue
+
+        source_path = item.get(
+            "source",
+            "",
+        )
+
+        sources.append(
+            {
+                "file": (
+                    Path(source_path).name
+                    if source_path
+                    else ""
+                ),
+                "source": source_path,
+                "chunk_id": item.get(
+                    "chunk_id"
+                ),
+                "text": item.get(
+                    "text",
+                    "",
+                ),
+                "score": item.get(
+                    "score"
+                ),
+                "raw_score": item.get(
+                    "raw_score"
+                ),
+                "boost": item.get(
+                    "boost"
+                ),
+            }
+        )
+
+    return sources
+
+
+def load_memory_messages(session_id: str):
+    memory = agent.memory
+
+    # 兼容当前 SQLite / MySQL Memory 实现
+    if hasattr(memory, "get_messages"):
+        return memory.get_messages(
+            session_id
+        )
+
+    if hasattr(memory, "get_history"):
+        return memory.get_history(
+            session_id
+        )
+
+    if hasattr(memory, "load_messages"):
+        return memory.load_messages(
+            session_id
+        )
+
+    raise RuntimeError(
+        "Memory backend does not provide "
+        "a supported history method."
+    )
+
+
+@app.get("/")
+def root():
+    return {
+        "service": "EdgeTalk Pro API",
+        "status": "running",
+        "docs": "/docs",
+        "health": "/health",
+    }
 
 
 @app.get("/health")
 def health():
-    memory_backend = os.getenv("MEMORY_BACKEND", "sqlite").lower()
+    memory_backend = os.getenv(
+        "MEMORY_BACKEND",
+        "sqlite",
+    ).lower()
 
     return {
         "success": True,
         "status": "healthy",
         "service": "EdgeTalk Pro API",
-        "version": "pro-0.1",
-        "mode": "lightweight-rag-agent",
+        "version": "pro-0.2",
+        "mode": "rag-agent-local-llm",
         "components": {
             "api": "ready",
             "rag": "ready",
             "retriever": "embedding",
             "agent": "ready",
-            "memory": memory_backend
-        }
+            "llm": llm_status,
+            "memory": memory_backend,
+        },
+        "model": llm_model_name,
     }
+
 
 @app.post("/chat")
 def chat(request: ChatRequest):
-    if not request.text.strip():
-        raise HTTPException(status_code=400, detail="text cannot be empty")
+    if local_llm is None:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Local LLM is not available."
+            ),
+        )
+
+    start_time = time.perf_counter()
+
+    try:
+        answer = local_llm.generate(
+            user_text=request.text,
+        )
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"LLM generation failed: {exc}",
+        )
+
+    latency_ms = round(
+        (
+            time.perf_counter()
+            - start_time
+        )
+        * 1000,
+        2,
+    )
 
     return {
-        "input": request.text,
-        "reply": "当前是轻量 API 模式，未加载完整 LLM Pipeline。请使用 /rag-chat 或 /agent-chat 测试 RAG 和 Agent 功能。",
+        "success": True,
+        "answer": answer,
+        "model": llm_model_name,
+        "latency_ms": latency_ms,
     }
+
 
 @app.post("/rag-chat")
 def rag_chat(request: RagChatRequest):
@@ -127,39 +339,34 @@ def rag_chat(request: RagChatRequest):
 
     retriever = get_retriever(
         request.retriever_type,
-        request.knowledge_dir
+        request.knowledge_dir,
     )
 
     results = retriever.retrieve(
         request.text,
         top_k=request.top_k,
-        min_score=request.min_score
+        min_score=request.min_score,
     )
 
     latency_ms = round(
-        (time.perf_counter() - start_time) * 1000,
-        2
+        (
+            time.perf_counter()
+            - start_time
+        )
+        * 1000,
+        2,
     )
 
-    sources = []
-
-    for item in results:
-        source_path = item.get("source", "")
-
-        sources.append({
-            "file": Path(source_path).name if source_path else "",
-            "source": source_path,
-            "chunk_id": item.get("chunk_id"),
-            "text": item.get("text", ""),
-            "score": item.get("score"),
-            "raw_score": item.get("raw_score"),
-            "boost": item.get("boost"),
-        })
+    sources = normalize_sources(
+        results
+    )
 
     return {
         "success": True,
         "query": request.text,
-        "retriever_type": request.retriever_type,
+        "retriever_type": (
+            request.retriever_type
+        ),
         "min_score": request.min_score,
         "sources": sources,
         "latency_ms": latency_ms,
@@ -170,56 +377,85 @@ def rag_chat(request: RagChatRequest):
 def agent_chat(request: AgentChatRequest):
     start_time = time.perf_counter()
 
-    result = agent.run(
-        request.text,
-        session_id=request.session_id
-    )
+    try:
+        result = agent.run(
+            request.text,
+            session_id=request.session_id,
+        )
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Agent execution failed: {exc}",
+        )
 
     latency_ms = round(
-        (time.perf_counter() - start_time) * 1000,
-        2
+        (
+            time.perf_counter()
+            - start_time
+        )
+        * 1000,
+        2,
     )
 
-    tool_result = result.get("tool_result") or {}
-    sources = []
+    tool_result = (
+        result.get("tool_result")
+        or {}
+    )
 
     if isinstance(tool_result, dict):
-        for item in tool_result.get("results", []):
-            source_path = item.get("source", "")
+        retriever_type = (
+            tool_result.get(
+                "retriever_type"
+            )
+        )
 
-            sources.append({
-                "file": Path(source_path).name if source_path else "",
-                "source": source_path,
-                "chunk_id": item.get("chunk_id"),
-                "text": item.get("text", ""),
-                "score": item.get("score"),
-                "raw_score": item.get("raw_score"),
-                "boost": item.get("boost"),
-            })
+        results = tool_result.get(
+            "results",
+            [],
+        )
+    else:
+        retriever_type = None
+        results = []
+
+    sources = normalize_sources(
+        results
+    )
 
     return {
         "success": True,
-        "answer": result.get("answer", ""),
+        "answer": result.get(
+            "answer",
+            "",
+        ),
         "session_id": result.get(
             "session_id",
-            request.session_id
+            request.session_id,
         ),
-        "tool_used": result.get("tool_used"),
-        "retriever_type": (
-            tool_result.get("retriever_type")
-            if isinstance(tool_result, dict)
-            else None
+        "tool_used": result.get(
+            "tool_used"
         ),
+        "retriever_type": retriever_type,
         "sources": sources,
         "latency_ms": latency_ms,
     }
 
+
 @app.get("/memory/{session_id}")
-def get_memory(session_id: str, limit: int = 20):
-    messages = agent.memory.get_recent_messages(
-        session_id=session_id,
-        limit=limit,
-    )
+def get_memory(session_id: str):
+    try:
+        messages = load_memory_messages(
+            session_id
+        )
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Memory query failed: {exc}",
+        )
+
+    if messages is None:
+        messages = []
 
     return {
         "session_id": session_id,

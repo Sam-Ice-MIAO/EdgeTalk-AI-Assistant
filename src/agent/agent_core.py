@@ -10,9 +10,11 @@ class AgentCore:
     def __init__(
         self,
         pipeline=None,
+        llm=None,
         knowledge_dir: str = "data/knowledge/industrial",
     ):
         self.pipeline = pipeline
+        self.llm = llm
         self.knowledge_dir = knowledge_dir
         self.memory = get_memory()
 
@@ -31,7 +33,7 @@ class AgentCore:
             "项目状态",
             "当前状态",
             "做到哪",
-            "当前能力",
+            "当前进度",
             "进度",
         ]
 
@@ -59,7 +61,7 @@ class AgentCore:
             "检查项目",
             "维修",
             "更换",
-            "更",
+            "电",
             "sop",
             "步骤",
             "准备",
@@ -101,32 +103,76 @@ class AgentCore:
 
         return "chat"
 
-    def _build_context_from_tool_result(self, tool_name: str, tool_result: dict) -> str:
+    def _build_context_from_tool_result(
+        self,
+        tool_name: str,
+        tool_result,
+    ) -> str:
+        if not isinstance(tool_result, dict):
+            return str(tool_result or "")
+
         if tool_name == "list_knowledge_files":
             files = tool_result.get("files", [])
-            return "\n".join(f"- {file}" for file in files)
+
+            if isinstance(files, list):
+                return "\n".join(
+                    str(item)
+                    for item in files
+                )
+
+            return str(files)
 
         if tool_name == "search_knowledge":
             results = tool_result.get("results", [])
-            return "\n\n".join(item.get("text", "") for item in results)
+
+            if not isinstance(results, list):
+                return ""
+
+            context_parts = []
+
+            for item in results:
+                if not isinstance(item, dict):
+                    continue
+
+                text = item.get("text", "")
+
+                if text:
+                    context_parts.append(text)
+
+            return "\n\n".join(context_parts)
 
         if tool_name == "get_project_status":
-            return tool_result.get("status", "")
+            return str(
+                tool_result.get(
+                    "status",
+                    tool_result.get("message", ""),
+                )
+            )
 
         return ""
 
-    def _generate_reply(self, user_text: str, context: str = "") -> str:
-        if self.pipeline is None:
-            if context:
-                short_context = context.strip()[:600]
-                return "根据知识库检索结果，相关内容如下：\n" + short_context
+    def _generate_reply(
+        self,
+        user_text: str,
+        context: str = "",
+    ) -> str:
+        # EdgeTalk Pro Web 模式
+        # FastAPI 直接使用独立 LocalLLM
+        if self.llm is not None:
+            try:
+                return self.llm.generate(
+                    user_text=user_text,
+                    context=context if context else None,
+                )
+            except Exception as exc:
+                print(
+                    f"LocalLLM generate failed: {exc}"
+                )
 
-            return (
-                "当前轻量模式未加载完整 LLM Pipeline，"
-                "但 Agent、RAG 和 Memory 功能可以正常测试。"
-            )
-
-        prompt = f"""
+        # 原完整语音 Pipeline 模式
+        # 保留向后兼容
+        if self.pipeline is not None:
+            prompt = f"""
 你是 EdgeTalk 工业设备维护助手，请基于资料回答用户问题。
 
 【用户问题】
@@ -136,22 +182,40 @@ class AgentCore:
 {context}
 
 【回答要求】
-1. 回答要简洁、准确；
+1. 回答简洁、准确；
 2. 优先基于资料回答；
-3. 如果资料不足，请说明资料不足；
+3. 如果资料不足，请明确说明；
 4. 不要编造资料中没有的信息。
 """
 
-        try:
-            return self.pipeline.generate_reply(
-                user_text=user_text,
-                context=context,
-            )
-        except TypeError:
             try:
-                return self.pipeline.generate_reply(prompt)
+                return self.pipeline.generate_reply(
+                    user_text=user_text,
+                    context=context,
+                )
             except TypeError:
-                return self.pipeline.generate_reply(user_text)
+                try:
+                    return self.pipeline.generate_reply(
+                        prompt
+                    )
+                except TypeError:
+                    return self.pipeline.generate_reply(
+                        user_text
+                    )
+
+        # 没有任何 LLM 时保留轻量模式
+        if context:
+            short_context = context.strip()[:600]
+
+            return (
+                "根据知识库检索结果，相关内容如下：\n\n"
+                + short_context
+            )
+
+        return (
+            "当前未加载本地 LLM，"
+            "但 Agent、RAG 和 Memory 功能可以正常使用。"
+        )
 
     def _return_with_memory(
         self,
@@ -173,28 +237,25 @@ class AgentCore:
                 role="assistant",
                 content=answer,
             )
-        except Exception:
-            pass
 
-        response["session_id"] = session_id
+        except Exception as exc:
+            print(
+                f"Memory save failed: {exc}"
+            )
+
         return response
 
-    def run(self, user_text: str, session_id: str = "default") -> dict:
-        if not user_text.strip():
-            response = {
-                "input": user_text,
-                "tool_used": "none",
-                "tool_result": {},
-                "answer": "输入内容不能为空。",
-            }
-            return self._return_with_memory(session_id, user_text, response)
-
+    def run(
+        self,
+        user_text: str,
+        session_id: str = "default",
+    ) -> dict:
         tool_name = self.select_tool(user_text)
 
+        # 普通聊天
         if tool_name == "chat":
             answer = self._generate_reply(
                 user_text=user_text,
-                context="",
             )
 
             response = {
@@ -202,56 +263,35 @@ class AgentCore:
                 "tool_used": "chat",
                 "tool_result": {},
                 "answer": answer,
+                "session_id": session_id,
             }
 
-            return self._return_with_memory(session_id, user_text, response)
-
-        if tool_name == "list_knowledge_files":
-            tool_result = list_knowledge_files(
-                knowledge_dir=self.knowledge_dir,
-            )
-
-            context = self._build_context_from_tool_result(
-                tool_name=tool_name,
-                tool_result=tool_result,
-            )
-
-            answer = self._generate_reply(
+            return self._return_with_memory(
+                session_id=session_id,
                 user_text=user_text,
-                context=context,
+                response=response,
             )
 
-            response = {
-                "input": user_text,
-                "tool_used": tool_name,
-                "tool_result": tool_result,
-                "answer": answer,
-            }
+        # 查询知识库文件
+        if tool_name == "list_knowledge_files":
+            try:
+                tool_result = list_knowledge_files(
+                    knowledge_dir=self.knowledge_dir
+                )
+            except TypeError:
+                tool_result = list_knowledge_files(
+                    self.knowledge_dir
+                )
 
-            return self._return_with_memory(session_id, user_text, response)
-
-        if tool_name == "search_knowledge":
-            tool_result = search_knowledge(
-                query=user_text,
-                knowledge_dir=self.knowledge_dir,
-                top_k=1,
-                min_score=0.30,
-                retriever_type="embedding",
-            )
-
-            if not tool_result.get("results"):
-                response = {
-                    "input": user_text,
-                    "tool_used": tool_name,
-                    "tool_result": tool_result,
-                    "answer": "知识库中没有检索到足够相关的内容。",
+            if not isinstance(tool_result, dict):
+                tool_result = {
+                    "success": True,
+                    "files": tool_result,
                 }
 
-                return self._return_with_memory(session_id, user_text, response)
-
             context = self._build_context_from_tool_result(
-                tool_name=tool_name,
-                tool_result=tool_result,
+                tool_name,
+                tool_result,
             )
 
             answer = self._generate_reply(
@@ -264,16 +304,28 @@ class AgentCore:
                 "tool_used": tool_name,
                 "tool_result": tool_result,
                 "answer": answer,
+                "session_id": session_id,
             }
 
-            return self._return_with_memory(session_id, user_text, response)
+            return self._return_with_memory(
+                session_id=session_id,
+                user_text=user_text,
+                response=response,
+            )
 
+        # 查询项目状态
         if tool_name == "get_project_status":
             tool_result = get_project_status()
 
+            if not isinstance(tool_result, dict):
+                tool_result = {
+                    "success": True,
+                    "status": tool_result,
+                }
+
             context = self._build_context_from_tool_result(
-                tool_name=tool_name,
-                tool_result=tool_result,
+                tool_name,
+                tool_result,
             )
 
             answer = self._generate_reply(
@@ -286,15 +338,81 @@ class AgentCore:
                 "tool_used": tool_name,
                 "tool_result": tool_result,
                 "answer": answer,
+                "session_id": session_id,
             }
 
-            return self._return_with_memory(session_id, user_text, response)
+            return self._return_with_memory(
+                session_id=session_id,
+                user_text=user_text,
+                response=response,
+            )
+
+        # 工业知识库 RAG
+        if tool_name == "search_knowledge":
+            try:
+                tool_result = search_knowledge(
+                    query=user_text,
+                    knowledge_dir=self.knowledge_dir,
+                    retriever_type="embedding",
+                )
+            except TypeError:
+                try:
+                    tool_result = search_knowledge(
+                        user_text,
+                        knowledge_dir=self.knowledge_dir,
+                        retriever_type="embedding",
+                    )
+                except TypeError:
+                    tool_result = search_knowledge(
+                        user_text
+                    )
+
+            if not isinstance(tool_result, dict):
+                tool_result = {
+                    "success": bool(tool_result),
+                    "results": tool_result or [],
+                }
+
+            context = self._build_context_from_tool_result(
+                tool_name,
+                tool_result,
+            )
+
+            if context:
+                answer = self._generate_reply(
+                    user_text=user_text,
+                    context=context,
+                )
+            else:
+                answer = (
+                    "当前工业知识库中没有检索到足够相关的资料。"
+                    "建议补充设备型号、故障码或具体维护问题后再试。"
+                )
+
+            response = {
+                "input": user_text,
+                "tool_used": tool_name,
+                "tool_result": tool_result,
+                "answer": answer,
+                "session_id": session_id,
+            }
+
+            return self._return_with_memory(
+                session_id=session_id,
+                user_text=user_text,
+                response=response,
+            )
 
         response = {
             "input": user_text,
             "tool_used": "unknown",
             "tool_result": {},
-            "answer": "暂时无法判断应该使用哪个工具。",
+            "answer": "暂时无法处理该请求。",
+            "session_id": session_id,
         }
 
-        return self._return_with_memory(session_id, user_text, response)
+        return self._return_with_memory(
+            session_id=session_id,
+            user_text=user_text,
+            response=response,
+        )

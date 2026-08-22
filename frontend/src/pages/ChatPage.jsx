@@ -10,7 +10,6 @@ import {
   Row,
   Space,
   Spin,
-  Tag,
   Typography,
 } from "antd";
 
@@ -20,7 +19,11 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
 import { sendAgentMessage } from "../api/chat";
+import EvidencePanel from "../components/EvidencePanel";
 
 const { TextArea } = Input;
 
@@ -98,6 +101,7 @@ function ChatPage() {
       setLatestResult(result);
     } catch (err) {
       console.error(err);
+
       const errorMessage =
         "EdgeTalk Pro 后端服务暂时不可用，请确认 FastAPI 服务已经启动。";
 
@@ -110,8 +114,7 @@ function ChatPage() {
           content: `⚠ ${errorMessage}`,
         },
       ]);
-    }        
-      finally {
+    } finally {
       setLoading(false);
     }
   }
@@ -126,9 +129,6 @@ function ChatPage() {
     }
   }
 
-  const sources =
-    latestResult?.sources || [];
-
   return (
     <div>
       <Typography.Title level={2}>
@@ -136,8 +136,7 @@ function ChatPage() {
       </Typography.Title>
 
       <Typography.Paragraph type="secondary">
-        面向工业设备故障诊断、维修 SOP、
-        每日点检和安全规范场景的智能维护助手。
+        面向工业设备故障诊断、维修 SOP、每日点检和安全规范场景的智能维护助手。
       </Typography.Paragraph>
 
       <Space
@@ -201,7 +200,15 @@ function ChatPage() {
                     </div>
 
                     <div className="message-content">
-                      {message.content}
+                      {message.role === "assistant" ? (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      ) : (
+                        message.content
+                      )}
                     </div>
                   </div>
                 ))
@@ -210,6 +217,7 @@ function ChatPage() {
               {loading && (
                 <div className="chat-loading">
                   <Spin size="small" />
+
                   <Typography.Text
                     type="secondary"
                   >
@@ -248,128 +256,9 @@ function ChatPage() {
           xs={24}
           lg={8}
         >
-          <Card title="Knowledge Evidence">
-            {!latestResult ? (
-              <Empty
-                description="暂无检索结果"
-              />
-            ) : (
-              <>
-                <div className="evidence-meta">
-                  <div>
-                    <Typography.Text strong>
-                      Tool
-                    </Typography.Text>
-
-                    <div>
-                      <Tag color="blue">
-                        {latestResult.tool_used ||
-                          "none"}
-                      </Tag>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Typography.Text strong>
-                      Retriever
-                    </Typography.Text>
-
-                    <div>
-                      <Tag color="blue">
-                        {latestResult.retriever_type ||
-                          "none"}
-                      </Tag>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Typography.Text strong>
-                      Latency
-                    </Typography.Text>
-
-                    <div>
-                      {latestResult.latency_ms
-                        ? `${(
-                            latestResult.latency_ms /
-                            1000
-                          ).toFixed(2)} s`
-                        : "-"}
-                    </div>
-                  </div>
-                </div>
-
-                <Typography.Title
-                  level={5}
-                  style={{ marginTop: 24 }}
-                >
-                  Sources
-                </Typography.Title>
-
-                {sources.length === 0 ? (
-                  <Typography.Text type="secondary">
-                    本次回答未使用知识库检索。
-                  </Typography.Text>
-                ) : (
-                  sources.map((source, index) => (
-                    <Card
-                      key={`${source.source}-${index}`}
-                      size="small"
-                      style={{ marginBottom: 12 }}
-                    >
-                      <Typography.Text strong>
-                        {source.file ||
-                          "Unknown Source"}
-                      </Typography.Text>
-
-                      <div
-                        style={{
-                          marginTop: 8,
-                          marginBottom: 8,
-                        }}
-                      >
-                        <Tag>
-                          Chunk {source.chunk_id}
-                        </Tag>
-
-                        {typeof source.score ===
-                          "number" && (
-                          <Tag color="green">
-                            Score{" "}
-                            {source.score.toFixed(4)}
-                          </Tag>
-                        )}
-                      </div>
-
-                      <Typography.Paragraph
-                        ellipsis={{
-                          rows: 8,
-                          expandable: true,
-                          symbol: "展开",
-                        }}
-                        style={{
-                          whiteSpace: "pre-wrap",
-                          marginBottom: 0,
-                        }}
-                      >
-                        {source.text}
-                      </Typography.Paragraph>
-                    </Card>
-                  ))
-                )}
-
-                <Typography.Text
-                  type="secondary"
-                  style={{
-                    display: "block",
-                    marginTop: 16,
-                  }}
-                >
-                  Session:{" "}
-                  {latestResult.session_id}
-                </Typography.Text>
-              </>
-            )}
-          </Card>
+          <EvidencePanel
+            result={latestResult}
+          />
         </Col>
       </Row>
     </div>

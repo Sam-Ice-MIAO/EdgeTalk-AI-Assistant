@@ -117,3 +117,65 @@ body {
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 }
+.message-content p {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.message-content p:last-child {
+  margin-bottom: 0;
+}
+
+.message-content h1,
+.message-content h2,
+.message-content h3 {
+  margin-top: 14px;
+  margin-bottom: 8px;
+}
+
+.message-content ul,
+.message-content ol {
+  padding-left: 22px;
+}
+
+.message-content li {
+  margin-bottom: 5px;
+}
+
+.message-content code {
+  padding: 2px 5px;
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+.evidence-source-card {
+  margin-bottom: 14px;
+}
+
+.source-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.source-file-name {
+  font-size: 12px;
+}
+
+.score-section {
+  margin-top: 16px;
+  margin-bottom: 18px;
+}
+
+.source-text {
+  margin-top: 8px;
+  white-space: pre-wrap;
+  line-height: 1.65;
+}
+
+.technical-details {
+  font-size: 13px;
+  line-height: 1.8;
+  word-break: break-all;
+}
