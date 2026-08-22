@@ -1,8 +1,9 @@
 import time
-
+import os
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
-
+from pathlib import Path
 from src.rag.simple_retriever import SimpleRetriever
 from src.rag.embedding_retriever import EmbeddingRetriever
 from src.agent.agent_core import AgentCore
@@ -12,6 +13,16 @@ app = FastAPI(
     title="EdgeTalk API",
     description="Lightweight API for EdgeTalk RAG and Agent testing",
     version="3.1.0",
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # 第八 / 第九周轻量模式：不加载完整 Pipeline，避免 ASR / TTS / LLM 依赖影响 RAG 测试
@@ -82,14 +93,23 @@ def get_retriever(retriever_type: str, knowledge_dir: str):
 
 
 @app.get("/health")
-def health_check():
-    return {
-        "status": "ok",
-        "service": "EdgeTalk API",
-        "version": "3.1.0",
-        "mode": "lightweight-rag-agent",
-    }
+def health():
+    memory_backend = os.getenv("MEMORY_BACKEND", "sqlite").lower()
 
+    return {
+        "success": True,
+        "status": "healthy",
+        "service": "EdgeTalk Pro API",
+        "version": "pro-0.1",
+        "mode": "lightweight-rag-agent",
+        "components": {
+            "api": "ready",
+            "rag": "ready",
+            "retriever": "embedding",
+            "agent": "ready",
+            "memory": memory_backend
+        }
+    }
 
 @app.post("/chat")
 def chat(request: ChatRequest):
@@ -101,74 +121,98 @@ def chat(request: ChatRequest):
         "reply": "当前是轻量 API 模式，未加载完整 LLM Pipeline。请使用 /rag-chat 或 /agent-chat 测试 RAG 和 Agent 功能。",
     }
 
-
 @app.post("/rag-chat")
 def rag_chat(request: RagChatRequest):
-    if not request.text.strip():
-        raise HTTPException(status_code=400, detail="text cannot be empty")
+    start_time = time.perf_counter()
 
-    retriever_type = request.retriever_type.lower().strip()
+    retriever = get_retriever(
+        request.retriever_type,
+        request.knowledge_dir
+    )
 
-    try:
-        retriever = get_retriever(
-            retriever_type=retriever_type,
-            knowledge_dir=request.knowledge_dir,
-        )
+    results = retriever.retrieve(
+        request.text,
+        top_k=request.top_k,
+        min_score=request.min_score
+    )
 
-        if retriever_type == "embedding":
-            min_score_used = 0.30
-        else:
-            min_score_used = request.min_score
+    latency_ms = round(
+        (time.perf_counter() - start_time) * 1000,
+        2
+    )
 
-        results = retriever.retrieve(
-            query=request.text,
-            top_k=request.top_k,
-            min_score=min_score_used,
-        )
+    sources = []
 
-        if not results:
-            return {
-                "input": request.text,
-                "retriever_type": retriever_type,
-                "min_score_used": min_score_used,
-                "reply": "知识库中没有检索到足够相关的内容。",
-                "retrieved": [],
-            }
+    for item in results:
+        source_path = item.get("source", "")
 
-        context = "\n\n".join(item["text"] for item in results)
+        sources.append({
+            "file": Path(source_path).name if source_path else "",
+            "source": source_path,
+            "chunk_id": item.get("chunk_id"),
+            "text": item.get("text", ""),
+            "score": item.get("score"),
+            "raw_score": item.get("raw_score"),
+            "boost": item.get("boost"),
+        })
 
-        reply = "根据知识库检索结果，相关内容如下：\n" + context[:600]
-
-        return {
-            "input": request.text,
-            "retriever_type": retriever_type,
-            "min_score_used": min_score_used,
-            "reply": reply,
-            "retrieved": results,
-        }
-
-    except HTTPException:
-        raise
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {
+        "success": True,
+        "query": request.text,
+        "retriever_type": request.retriever_type,
+        "min_score": request.min_score,
+        "sources": sources,
+        "latency_ms": latency_ms,
+    }
 
 
 @app.post("/agent-chat")
 def agent_chat(request: AgentChatRequest):
-    if not request.text.strip():
-        raise HTTPException(status_code=400, detail="text cannot be empty")
+    start_time = time.perf_counter()
 
-    try:
-        result = agent.run(
-            user_text=request.text,
-            session_id=request.session_id,
-        )
-        return result
+    result = agent.run(
+        request.text,
+        session_id=request.session_id
+    )
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    latency_ms = round(
+        (time.perf_counter() - start_time) * 1000,
+        2
+    )
 
+    tool_result = result.get("tool_result") or {}
+    sources = []
+
+    if isinstance(tool_result, dict):
+        for item in tool_result.get("results", []):
+            source_path = item.get("source", "")
+
+            sources.append({
+                "file": Path(source_path).name if source_path else "",
+                "source": source_path,
+                "chunk_id": item.get("chunk_id"),
+                "text": item.get("text", ""),
+                "score": item.get("score"),
+                "raw_score": item.get("raw_score"),
+                "boost": item.get("boost"),
+            })
+
+    return {
+        "success": True,
+        "answer": result.get("answer", ""),
+        "session_id": result.get(
+            "session_id",
+            request.session_id
+        ),
+        "tool_used": result.get("tool_used"),
+        "retriever_type": (
+            tool_result.get("retriever_type")
+            if isinstance(tool_result, dict)
+            else None
+        ),
+        "sources": sources,
+        "latency_ms": latency_ms,
+    }
 
 @app.get("/memory/{session_id}")
 def get_memory(session_id: str, limit: int = 20):
