@@ -179,3 +179,24 @@ body {
   line-height: 1.8;
   word-break: break-all;
 }
+.rewrite-box {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: #f6f8fa;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.chat-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 768px) {
+  .chat-page-header {
+    flex-direction: column;
+  }
+}

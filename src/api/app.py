@@ -231,31 +231,21 @@ def normalize_sources(results):
         )
 
     return sources
-
-
-def load_memory_messages(session_id: str):
+def load_memory_messages(
+    session_id: str,
+):
     memory = agent.memory
 
-    # 兼容当前 SQLite / MySQL Memory 实现
-    if hasattr(memory, "get_messages"):
-        return memory.get_messages(
-            session_id
+    try:
+        return memory.get_recent_messages(
+            session_id=session_id,
+            limit=100,
         )
 
-    if hasattr(memory, "get_history"):
-        return memory.get_history(
-            session_id
+    except Exception as exc:
+        raise RuntimeError(
+            f"Failed to load memory: {exc}"
         )
-
-    if hasattr(memory, "load_messages"):
-        return memory.load_messages(
-            session_id
-        )
-
-    raise RuntimeError(
-        "Memory backend does not provide "
-        "a supported history method."
-    )
 
 
 @app.get("/")
@@ -437,6 +427,20 @@ def agent_chat(request: AgentChatRequest):
         ),
         "retriever_type": retriever_type,
         "sources": sources,
+        "retrieval_query": result.get(
+            "retrieval_query"
+        ),
+        "followup_rewritten": result.get(
+            "followup_rewritten",
+            False,
+        ),
+        "guardrail_triggered": result.get(
+            "guardrail_triggered",
+            False,
+        ),
+        "guardrail_reason": result.get(
+            "guardrail_reason"
+        ),
         "latency_ms": latency_ms,
     }
 
