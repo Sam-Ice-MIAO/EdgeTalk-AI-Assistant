@@ -74,3 +74,6 @@ hf_cache/
 
 # Temporary backup files
 *.bak
+# Evaluation results
+eval/results/*.json
+!eval/results/latest.json
