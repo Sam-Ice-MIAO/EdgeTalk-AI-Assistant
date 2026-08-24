@@ -7,8 +7,10 @@ import {
 import AppLayout from "./components/AppLayout";
 
 import ChatPage from "./pages/ChatPage";
+import EvaluationPage from "./pages/EvaluationPage";
 import KnowledgePage from "./pages/KnowledgePage";
 import StatusPage from "./pages/StatusPage";
+
 
 function App() {
   return (
@@ -17,22 +19,36 @@ function App() {
         <Routes>
           <Route
             path="/"
-            element={<ChatPage />}
+            element={
+              <ChatPage />
+            }
           />
 
           <Route
             path="/knowledge"
-            element={<KnowledgePage />}
+            element={
+              <KnowledgePage />
+            }
+          />
+
+          <Route
+            path="/evaluation"
+            element={
+              <EvaluationPage />
+            }
           />
 
           <Route
             path="/status"
-            element={<StatusPage />}
+            element={
+              <StatusPage />
+            }
           />
         </Routes>
       </AppLayout>
     </BrowserRouter>
   );
 }
+
 
 export default App;

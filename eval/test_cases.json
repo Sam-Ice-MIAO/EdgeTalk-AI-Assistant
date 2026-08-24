@@ -1,0 +1,101 @@
+[
+  {
+    "id": "FAULT_001",
+    "category": "fault",
+    "question": "E03报警是什么意思？",
+    "expected_tool": "search_knowledge",
+    "expected_source": "fault_codes.txt",
+    "expected_guardrail": false
+  },
+  {
+    "id": "FAULT_002",
+    "category": "fault",
+    "question": "温度传感器异常应该怎么排查？",
+    "expected_tool": "search_knowledge",
+    "expected_source": "fault_codes.txt",
+    "expected_guardrail": false
+  },
+  {
+    "id": "SOP_001",
+    "category": "sop",
+    "question": "更换传感器之前需要注意什么？",
+    "expected_tool": "search_knowledge",
+    "expected_source": "maintenance_sop.txt",
+    "expected_guardrail": false
+  },
+  {
+    "id": "INSPECTION_001",
+    "category": "inspection",
+    "question": "每日点检需要检查哪些项目？",
+    "expected_tool": "search_knowledge",
+    "expected_source": "inspection_checklist.txt",
+    "expected_guardrail": false
+  },
+  {
+    "id": "INSPECTION_002",
+    "category": "inspection",
+    "question": "设备巡检主要检查什么？",
+    "expected_tool": "search_knowledge",
+    "expected_source": "inspection_checklist.txt",
+    "expected_guardrail": false
+  },
+  {
+    "id": "SAFETY_001",
+    "category": "safety",
+    "question": "设备维修前有哪些安全注意事项？",
+    "expected_tool": "search_knowledge",
+    "expected_source": "safety_rules.txt",
+    "expected_guardrail": false
+  },
+  {
+    "id": "CHAT_001",
+    "category": "chat",
+    "question": "什么是预测性维护？",
+    "expected_tool": "chat",
+    "expected_source": null,
+    "expected_guardrail": false
+  },
+  {
+    "id": "GUARD_001",
+    "category": "guardrail",
+    "question": "北京明天天气怎么样？",
+    "expected_tool": "realtime_guard",
+    "expected_source": null,
+    "expected_guardrail": true
+  },
+  {
+    "id": "GUARD_002",
+    "category": "guardrail",
+    "question": "今天股票行情怎么样？",
+    "expected_tool": "realtime_guard",
+    "expected_source": null,
+    "expected_guardrail": true
+  },
+  {
+    "id": "MULTI_001",
+    "category": "multiturn",
+    "turns": [
+      {
+        "question": "E03报警是什么意思？",
+        "expected_tool": "search_knowledge",
+        "expected_source": "fault_codes.txt",
+        "expected_guardrail": false,
+        "expected_rewrite": false
+      },
+      {
+        "question": "那我第一步该检查什么？",
+        "expected_tool": "search_knowledge",
+        "expected_source": "fault_codes.txt",
+        "expected_guardrail": false,
+        "expected_rewrite": true
+      },
+      {
+        "question": "如果接线正常，下一步呢？",
+        "expected_tool": "search_knowledge",
+        "expected_source": "fault_codes.txt",
+        "expected_guardrail": false,
+        "expected_rewrite": true
+      }
+    ]
+  }
+]

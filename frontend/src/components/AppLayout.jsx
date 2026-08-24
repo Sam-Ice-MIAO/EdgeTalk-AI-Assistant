@@ -1,7 +1,8 @@
 import {
-  RobotOutlined,
-  DatabaseOutlined,
+  BarChartOutlined,
   DashboardOutlined,
+  DatabaseOutlined,
+  RobotOutlined,
 } from "@ant-design/icons";
 
 import {
@@ -15,37 +16,69 @@ import {
   useNavigate,
 } from "react-router-dom";
 
-const { Sider, Header, Content } = Layout;
 
-function AppLayout({ children }) {
-  const navigate = useNavigate();
-  const location = useLocation();
+const {
+  Sider,
+  Header,
+  Content,
+} = Layout;
+
+
+function AppLayout({
+  children,
+}) {
+  const navigate =
+    useNavigate();
+
+  const location =
+    useLocation();
+
 
   const menuItems = [
     {
       key: "/",
-      icon: <RobotOutlined />,
-      label: "AI Assistant",
+      icon:
+        <RobotOutlined />,
+      label:
+        "AI Assistant",
     },
     {
       key: "/knowledge",
-      icon: <DatabaseOutlined />,
-      label: "Knowledge Base",
+      icon:
+        <DatabaseOutlined />,
+      label:
+        "Knowledge Base",
+    },
+    {
+      key: "/evaluation",
+      icon:
+        <BarChartOutlined />,
+      label:
+        "PoC Evaluation",
     },
     {
       key: "/status",
-      icon: <DashboardOutlined />,
-      label: "System Status",
+      icon:
+        <DashboardOutlined />,
+      label:
+        "System Status",
     },
   ];
 
+
   return (
-    <Layout style={{ minHeight: "100vh" }}>
+    <Layout
+      style={{
+        minHeight:
+          "100vh",
+      }}
+    >
       <Sider
         width={230}
         theme="light"
         style={{
-          borderRight: "1px solid #f0f0f0",
+          borderRight:
+            "1px solid #f0f0f0",
         }}
       >
         <div className="brand">
@@ -60,28 +93,43 @@ function AppLayout({ children }) {
 
         <Menu
           mode="inline"
-          selectedKeys={[location.pathname]}
-          items={menuItems}
-          onClick={({ key }) => navigate(key)}
+          selectedKeys={[
+            location.pathname,
+          ]}
+          items={
+            menuItems
+          }
+          onClick={({
+            key,
+          }) =>
+            navigate(key)
+          }
         />
       </Sider>
 
       <Layout>
-        <Header className="app-header">
+        <Header
+          className="app-header"
+        >
           <Typography.Title
             level={4}
-            style={{ margin: 0 }}
+            style={{
+              margin: 0,
+            }}
           >
             工业设备智能维护助手
           </Typography.Title>
         </Header>
 
-        <Content className="app-content">
+        <Content
+          className="app-content"
+        >
           {children}
         </Content>
       </Layout>
     </Layout>
   );
 }
+
 
 export default AppLayout;

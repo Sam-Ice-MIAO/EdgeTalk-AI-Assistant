@@ -1,6 +1,6 @@
 import os
 import time
-
+import json
 from pathlib import Path
 
 from fastapi import (
@@ -19,7 +19,12 @@ from src.rag.embedding_retriever import EmbeddingRetriever
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
+EVALUATION_RESULT_PATH = (
+    PROJECT_ROOT
+    / "eval"
+    / "results"
+    / "latest.json"
+)
 
 app = FastAPI(
     title="EdgeTalk Pro API",
@@ -466,3 +471,34 @@ def get_memory(session_id: str):
         "count": len(messages),
         "messages": messages,
     }
+@app.get("/evaluation/latest")
+def get_latest_evaluation():
+    if not EVALUATION_RESULT_PATH.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Evaluation result not found. "
+                "Run python eval/run_eval.py first."
+            ),
+        )
+
+    try:
+        with open(
+            EVALUATION_RESULT_PATH,
+            "r",
+            encoding="utf-8",
+        ) as file:
+            result = json.load(
+                file
+            )
+
+        return result
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Failed to load "
+                f"evaluation result: {exc}"
+            ),
+        )
