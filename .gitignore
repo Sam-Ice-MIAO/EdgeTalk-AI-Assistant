@@ -77,3 +77,4 @@ hf_cache/
 # Evaluation results
 eval/results/*.json
 !eval/results/latest.json
+*.save
