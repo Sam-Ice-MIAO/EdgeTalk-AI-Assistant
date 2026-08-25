@@ -130,15 +130,18 @@ def test_health():
 
 def test_rag():
     session_id = (
-        f"smoke_rag_{int(time.time())}"
+        f"smoke_rag_"
+        f"{int(time.time() * 1000)}"
     )
 
     result, latency = request_json(
         "POST",
         "/agent-chat",
         {
-            "text": "E03报警是什么意思？",
-            "session_id": session_id,
+            "text":
+                "E03报警是什么意思？",
+            "session_id":
+                session_id,
         },
     )
 
@@ -157,7 +160,8 @@ def test_rag():
     passed = (
         result.get("tool_used")
         == "search_knowledge"
-        and "fault_codes.txt"
+        and
+        "fault_codes.txt"
         in files
     )
 
@@ -165,7 +169,8 @@ def test_rag():
         "Industrial RAG",
         passed,
         (
-            f"tool={result.get('tool_used')} "
+            f"tool="
+            f"{result.get('tool_used')} "
             f"source={files} "
             f"latency={latency:.0f}ms"
         ),
@@ -174,24 +179,63 @@ def test_rag():
 
 def test_multiturn():
     session_id = (
-        f"smoke_multi_{int(time.time())}"
+        f"smoke_multi_"
+        f"{int(time.time() * 1000)}"
     )
 
-    request_json(
+    first_result, _ = request_json(
         "POST",
         "/agent-chat",
         {
-            "text": "E03报警是什么意思？",
-            "session_id": session_id,
+            "text":
+                "E03报警是什么意思？",
+            "session_id":
+                session_id,
         },
     )
+
+    first_files = [
+        item.get("file")
+        for item in first_result.get(
+            "sources",
+            [],
+        )
+        if isinstance(
+            item,
+            dict,
+        )
+    ]
+
+    first_passed = (
+        first_result.get(
+            "tool_used"
+        )
+        == "search_knowledge"
+        and
+        "fault_codes.txt"
+        in first_files
+    )
+
+    if not first_passed:
+        return check(
+            "Multi-turn RAG",
+            False,
+            (
+                "first turn failed: "
+                f"tool="
+                f"{first_result.get('tool_used')} "
+                f"source={first_files}"
+            ),
+        )
 
     result, latency = request_json(
         "POST",
         "/agent-chat",
         {
-            "text": "那我第一步该检查什么？",
-            "session_id": session_id,
+            "text":
+                "那我第一步该检查什么？",
+            "session_id":
+                session_id,
         },
     )
 
@@ -207,13 +251,24 @@ def test_multiturn():
         )
     ]
 
+    retrieval_query = (
+        result.get(
+            "retrieval_query"
+        )
+        or ""
+    )
+
     passed = (
         result.get(
             "followup_rewritten"
         )
         is True
-        and "fault_codes.txt"
+        and
+        "fault_codes.txt"
         in files
+        and
+        "E03"
+        in retrieval_query
     )
 
     return check(
@@ -230,22 +285,28 @@ def test_multiturn():
 
 def test_guardrail():
     session_id = (
-        f"smoke_guard_{int(time.time())}"
+        f"smoke_guard_"
+        f"{int(time.time() * 1000)}"
     )
 
     result, latency = request_json(
         "POST",
         "/agent-chat",
         {
-            "text": "北京明天天气怎么样？",
-            "session_id": session_id,
+            "text":
+                "北京明天天气怎么样？",
+            "session_id":
+                session_id,
         },
     )
 
     passed = (
-        result.get("tool_used")
+        result.get(
+            "tool_used"
+        )
         == "realtime_guard"
-        and result.get(
+        and
+        result.get(
             "guardrail_triggered"
         )
         is True
@@ -255,7 +316,8 @@ def test_guardrail():
         "Realtime Guardrail",
         passed,
         (
-            f"tool={result.get('tool_used')} "
+            f"tool="
+            f"{result.get('tool_used')} "
             "triggered="
             f"{result.get('guardrail_triggered')} "
             f"latency={latency:.0f}ms"
@@ -265,15 +327,18 @@ def test_guardrail():
 
 def test_chat():
     session_id = (
-        f"smoke_chat_{int(time.time())}"
+        f"smoke_chat_"
+        f"{int(time.time() * 1000)}"
     )
 
     result, latency = request_json(
         "POST",
         "/agent-chat",
         {
-            "text": "什么是预测性维护？",
-            "session_id": session_id,
+            "text":
+                "什么是预测性维护？",
+            "session_id":
+                session_id,
         },
     )
 
@@ -283,9 +348,12 @@ def test_chat():
     )
 
     passed = (
-        result.get("tool_used")
+        result.get(
+            "tool_used"
+        )
         == "chat"
-        and bool(
+        and
+        bool(
             answer.strip()
         )
     )
@@ -294,7 +362,10 @@ def test_chat():
         "Local LLM Chat",
         passed,
         (
-            f"tool={result.get('tool_used')} "
+            f"tool="
+            f"{result.get('tool_used')} "
+            f"answer_length="
+            f"{len(answer)} "
             f"latency={latency:.0f}ms"
         ),
     )
@@ -307,22 +378,105 @@ def test_evaluation_api():
     )
 
     summary = (
-        result.get("summary")
+        result.get(
+            "summary"
+        )
         or {}
     )
 
+    total = summary.get(
+        "total",
+        0,
+    )
+
+    passed_count = (
+        summary.get(
+            "passed",
+            0,
+        )
+    )
+
+    pass_rate = (
+        summary.get(
+            "pass_rate",
+            0,
+        )
+    )
+
+    accepted = (
+        summary.get(
+            "accepted",
+            False,
+        )
+    )
+
     passed = (
-        summary.get("total", 0)
-        > 0
+        total > 0
+        and
+        passed_count > 0
+        and
+        accepted is True
     )
 
     return check(
         "Evaluation API",
         passed,
         (
-            f"tests={summary.get('total')} "
-            f"pass_rate="
-            f"{summary.get('pass_rate')}% "
+            f"tests={total} "
+            f"passed={passed_count} "
+            f"pass_rate={pass_rate}% "
+            f"accepted={accepted} "
+            f"latency={latency:.0f}ms"
+        ),
+    )
+
+
+def test_report_api():
+    result, latency = request_json(
+        "GET",
+        "/evaluation/report",
+    )
+
+    report = (
+        result.get(
+            "report"
+        )
+        or ""
+    )
+
+    report_format = (
+        result.get(
+            "report_format"
+        )
+    )
+
+    passed = (
+        result.get(
+            "success"
+        )
+        is True
+        and
+        report_format
+        == "markdown"
+        and
+        "EdgeTalk Pro"
+        in report
+        and
+        "PoC"
+        in report
+        and
+        "验收"
+        in report
+    )
+
+    return check(
+        "PoC Report API",
+        passed,
+        (
+            f"format="
+            f"{report_format} "
+            f"report_length="
+            f"{len(report)} "
             f"latency={latency:.0f}ms"
         ),
     )
@@ -335,7 +489,7 @@ def main():
     )
 
     print(
-        "=" * 55
+        "=" * 60
     )
 
     tests = [
@@ -345,14 +499,17 @@ def main():
         test_guardrail,
         test_chat,
         test_evaluation_api,
+        test_report_api,
     ]
 
     results = []
 
     for test in tests:
         try:
+            result = test()
+
             results.append(
-                test()
+                result
             )
 
         except Exception as exc:
@@ -369,21 +526,25 @@ def main():
                 False
             )
 
+        print()
+
     passed = sum(
         1
         for item in results
         if item
     )
 
-    total = len(results)
-
-    print()
-    print(
-        "=" * 55
+    total = len(
+        results
     )
 
     print(
-        f"Passed: {passed}/{total}"
+        "=" * 60
+    )
+
+    print(
+        f"Passed: "
+        f"{passed}/{total}"
     )
 
     if passed == total:

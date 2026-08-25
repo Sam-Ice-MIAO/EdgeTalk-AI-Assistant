@@ -8,6 +8,13 @@ from fastapi import (
     HTTPException,
     Request,
 )
+from fastapi.responses import (
+    FileResponse,
+)
+from src.report.poc_report import (
+    generate_poc_report,
+    save_poc_report,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -24,6 +31,11 @@ EVALUATION_RESULT_PATH = (
     / "eval"
     / "results"
     / "latest.json"
+)
+POC_REPORT_PATH = (
+    PROJECT_ROOT
+    / "reports"
+    / "latest_poc_report.md"
 )
 
 app = FastAPI(
@@ -500,5 +512,102 @@ def get_latest_evaluation():
             detail=(
                 "Failed to load "
                 f"evaluation result: {exc}"
+            ),
+        )
+@app.get("/evaluation/report")
+def get_evaluation_report():
+    if not EVALUATION_RESULT_PATH.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Evaluation result not found. "
+                "Run python eval/run_eval.py first."
+            ),
+        )
+
+    try:
+        with open(
+            EVALUATION_RESULT_PATH,
+            "r",
+            encoding="utf-8",
+        ) as file:
+            evaluation_data = (
+                json.load(file)
+            )
+
+        report = (
+            generate_poc_report(
+                evaluation_data
+            )
+        )
+
+        return {
+            "success": True,
+            "report_format": "markdown",
+            "report": report,
+            "evaluation_generated_at": (
+                evaluation_data.get(
+                    "generated_at"
+                )
+            ),
+        }
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Failed to generate "
+                f"PoC report: {exc}"
+            ),
+        )
+
+
+@app.get(
+    "/evaluation/report/download"
+)
+def download_evaluation_report():
+    if not EVALUATION_RESULT_PATH.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Evaluation result not found. "
+                "Run python eval/run_eval.py first."
+            ),
+        )
+
+    try:
+        with open(
+            EVALUATION_RESULT_PATH,
+            "r",
+            encoding="utf-8",
+        ) as file:
+            evaluation_data = (
+                json.load(file)
+            )
+
+        save_poc_report(
+            evaluation_data,
+            POC_REPORT_PATH,
+        )
+
+        return FileResponse(
+            path=str(
+                POC_REPORT_PATH
+            ),
+            filename=(
+                "EdgeTalk-Pro-"
+                "PoC-Report.md"
+            ),
+            media_type=(
+                "text/markdown"
+            ),
+        )
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Failed to download "
+                f"PoC report: {exc}"
             ),
         )
