@@ -5,9 +5,11 @@ import {
 
 import {
   Alert,
+  Button,
   Card,
   Col,
   Empty,
+  Modal,
   Progress,
   Row,
   Spin,
@@ -15,9 +17,17 @@ import {
   Table,
   Tag,
   Typography,
+  message,
 } from "antd";
 
 import {
+  DownloadOutlined,
+  FileTextOutlined,
+} from "@ant-design/icons";
+
+import {
+  downloadEvaluationReport,
+  getEvaluationReport,
   getLatestEvaluation,
 } from "../api/evaluation";
 
@@ -36,6 +46,21 @@ function EvaluationPage() {
   const [
     error,
     setError,
+  ] = useState("");
+
+  const [
+    reportOpen,
+    setReportOpen,
+  ] = useState(false);
+
+  const [
+    reportLoading,
+    setReportLoading,
+  ] = useState(false);
+
+  const [
+    reportText,
+    setReportText,
   ] = useState("");
 
 
@@ -63,9 +88,61 @@ function EvaluationPage() {
   }, []);
 
 
+  async function handlePreviewReport() {
+    setReportLoading(true);
+
+    try {
+      const result =
+        await getEvaluationReport();
+
+      setReportText(
+        result.report || ""
+      );
+
+      setReportOpen(true);
+
+    } catch (err) {
+      console.error(err);
+
+      message.error(
+        "PoC 报告生成失败，请确认 FastAPI Report API 已正常启动。"
+      );
+
+    } finally {
+      setReportLoading(false);
+    }
+  }
+
+
+  async function handleDownloadReport() {
+    try {
+      await downloadEvaluationReport();
+
+      message.success(
+        "PoC 报告下载成功"
+      );
+
+    } catch (err) {
+      console.error(err);
+
+      message.error(
+        "PoC 报告下载失败，请确认后端服务正常运行。"
+      );
+    }
+  }
+
+
   if (loading) {
     return (
-      <Spin size="large" />
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          paddingTop: 80,
+        }}
+      >
+        <Spin size="large" />
+      </div>
     );
   }
 
@@ -110,8 +187,7 @@ function EvaluationPage() {
     },
     {
       title: "场景",
-      dataIndex:
-        "category_name",
+      dataIndex: "category_name",
       key: "category_name",
       width: 110,
     },
@@ -142,8 +218,7 @@ function EvaluationPage() {
     },
     {
       title: "Tool",
-      dataIndex:
-        "actual_tool",
+      dataIndex: "actual_tool",
       key: "actual_tool",
       width: 150,
       render: (value) => (
@@ -154,8 +229,7 @@ function EvaluationPage() {
     },
     {
       title: "Source",
-      dataIndex:
-        "actual_sources",
+      dataIndex: "actual_sources",
       key: "actual_sources",
       width: 180,
       render: (sources) => {
@@ -166,15 +240,12 @@ function EvaluationPage() {
           return "-";
         }
 
-        return sources.join(
-          ", "
-        );
+        return sources.join(", ");
       },
     },
     {
       title: "Rewrite",
-      dataIndex:
-        "actual_rewrite",
+      dataIndex: "actual_rewrite",
       key: "actual_rewrite",
       width: 90,
       render: (value) => (
@@ -189,8 +260,7 @@ function EvaluationPage() {
     },
     {
       title: "Latency",
-      dataIndex:
-        "latency_ms",
+      dataIndex: "latency_ms",
       key: "latency_ms",
       width: 100,
       render: (value) => (
@@ -206,11 +276,61 @@ function EvaluationPage() {
 
   return (
     <div>
-      <Typography.Title
-        level={2}
+      <div
+        style={{
+          display: "flex",
+          justifyContent:
+            "space-between",
+          alignItems: "center",
+          gap: 16,
+          marginBottom: 8,
+          flexWrap: "wrap",
+        }}
       >
-        PoC Evaluation
-      </Typography.Title>
+        <Typography.Title
+          level={2}
+          style={{
+            margin: 0,
+          }}
+        >
+          PoC Evaluation
+        </Typography.Title>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+          }}
+        >
+          <Button
+            icon={
+              <FileTextOutlined />
+            }
+            onClick={
+              handlePreviewReport
+            }
+            loading={
+              reportLoading
+            }
+          >
+            预览报告
+          </Button>
+
+          <Button
+            type="primary"
+            icon={
+              <DownloadOutlined />
+            }
+            onClick={
+              handleDownloadReport
+            }
+          >
+            下载 PoC 报告
+          </Button>
+        </div>
+      </div>
+
 
       <Typography.Paragraph
         type="secondary"
@@ -505,9 +625,64 @@ function EvaluationPage() {
         }}
       >
         Generated At:{" "}
-        {data.generated_at ||
-          "-"}
+        {data.generated_at || "-"}
       </Typography.Text>
+
+
+      <Modal
+        title="EdgeTalk Pro PoC Report"
+        open={reportOpen}
+        onCancel={() =>
+          setReportOpen(false)
+        }
+        footer={[
+          <Button
+            key="close"
+            onClick={() =>
+              setReportOpen(false)
+            }
+          >
+            关闭
+          </Button>,
+
+          <Button
+            key="download"
+            type="primary"
+            icon={
+              <DownloadOutlined />
+            }
+            onClick={
+              handleDownloadReport
+            }
+          >
+            下载报告
+          </Button>,
+        ]}
+        width={900}
+      >
+        {reportText ? (
+          <pre
+            style={{
+              maxHeight: "65vh",
+              overflow: "auto",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              padding: 16,
+              margin: 0,
+              background: "#f7f7f7",
+              borderRadius: 8,
+              fontFamily: "inherit",
+              lineHeight: 1.7,
+            }}
+          >
+            {reportText}
+          </pre>
+        ) : (
+          <Empty
+            description="暂无报告内容"
+          />
+        )}
+      </Modal>
     </div>
   );
 }

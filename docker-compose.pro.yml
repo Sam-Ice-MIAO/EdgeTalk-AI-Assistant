@@ -1,0 +1,61 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+
+    container_name: edgetalk-pro-api
+
+    restart: unless-stopped
+
+    environment:
+      MEMORY_BACKEND: sqlite
+      LLM_MODEL_PATH: /app/models/qwen1.5b.gguf
+      
+      HF_HOME: /root/.cache/huggingface
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+
+      TOKENIZERS_PARALLELISM: "false"
+
+    volumes:
+      - ./models:/app/models:ro
+      - ./data:/app/data
+      - ./eval:/app/eval
+      - ./reports:/app/reports
+      - ${HOME}/.cache/huggingface:/root/.cache/huggingface
+
+    ports:
+      - "8000:8000"
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+
+    container_name: edgetalk-pro-web
+
+    restart: unless-stopped
+
+    depends_on:
+      - api
+
+    ports:
+      - "8080:80"

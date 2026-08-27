@@ -78,3 +78,7 @@ hf_cache/
 eval/results/*.json
 !eval/results/latest.json
 *.save
+
+# Generated PoC reports
+reports/*.md
+!reports/README.md

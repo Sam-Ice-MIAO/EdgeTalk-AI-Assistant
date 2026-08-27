@@ -1,14 +1,25 @@
 .git
-.venv
-.venv311
-venv
-__pycache__
-*.pyc
+.github
 
-audio/*
+.venv/
+.venv311/
+venv/
+
+__pycache__/
+*.pyc
+*.pyo
+
 models/*
 data/memory/*.db
 
-logs
+frontend/node_modules/
+frontend/dist/
+
+reports/*.md
+
+*.wav
+*.mp3
 *.log
-.ipynb_checkpoints
+
+.vscode/
+.idea/
