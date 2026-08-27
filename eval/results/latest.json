@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-25T11:12:26+08:00",
+  "generated_at": "2026-08-27T01:28:52+00:00",
   "project": "EdgeTalk Pro",
   "evaluation_version": "1.0",
   "summary": {
@@ -7,8 +7,8 @@
     "passed": 12,
     "failed": 0,
     "pass_rate": 100.0,
-    "avg_latency_ms": 2040.7,
-    "max_latency_ms": 4171.27,
+    "avg_latency_ms": 1967.18,
+    "max_latency_ms": 4268.25,
     "acceptance_target": 80.0,
     "accepted": true
   },
@@ -89,8 +89,8 @@
       "expected_rewrite": null,
       "actual_rewrite": false,
       "retrieval_query": "E03报警是什么意思？",
-      "latency_ms": 2473.55,
-      "answer": "E03报警表示温度传感器出现异常，可能的原因包括接线松动、探头损坏、采集模块故障或安装位置偏移。建议先检查这些方面。"
+      "latency_ms": 4139.19,
+      "answer": "E03报警表示温度传感器出现异常。可能的原因包括接线松动、探头损坏、采集模块异常或安装位置偏移。"
     },
     {
       "id": "FAULT_002",
@@ -110,8 +110,8 @@
       "expected_rewrite": null,
       "actual_rewrite": false,
       "retrieval_query": "温度传感器异常应该怎么排查？",
-      "latency_ms": 868.95,
-      "answer": "首先检查接线，然后看探头是否损坏。如果都正常，再看看采集模块。"
+      "latency_ms": 1664.45,
+      "answer": "首先检查接线是否松动，然后看探头是否有损坏。如果都正常，再排查温度采集模块。"
     },
     {
       "id": "SOP_001",
@@ -131,8 +131,8 @@
       "expected_rewrite": null,
       "actual_rewrite": false,
       "retrieval_query": "更换传感器之前需要注意什么？",
-      "latency_ms": 1385.45,
-      "answer": "更换传感器之前必须断电，不能挤压传感器线缆。"
+      "latency_ms": 1433.91,
+      "answer": "更换传感器之前必须断电，不能挤压线缆。"
     },
     {
       "id": "INSPECTION_001",
@@ -152,8 +152,8 @@
       "expected_rewrite": null,
       "actual_rewrite": false,
       "retrieval_query": "每日点检需要检查哪些项目？",
-      "latency_ms": 4171.27,
-      "answer": "每日点检需要检查设备周围是否有异物、积尘或油污；急停按钮是否灵活有效；防护门和安全开关是否正常；传送带是否跑偏、打滑或磨损；电机运行声音是否异常；光电传感器指示灯是否正常；温度传感器显示值是否合理；气压表读数是否正常；PLC 控制柜是否有报警信息。"
+      "latency_ms": 4268.25,
+      "answer": "每日点检需要检查设备周围是否有异物、积尘或油污，急停按钮是否灵活有效，防护门和安全开关是否正常，传送带是否跑偏、打滑或磨损，电机运行声音是否异常，光电传感器指示灯是否正常，温度传感器显示值是否合理，气压表读数是否正常，PLC 控制柜是否有报警信息。"
     },
     {
       "id": "INSPECTION_002",
@@ -173,8 +173,8 @@
       "expected_rewrite": null,
       "actual_rewrite": false,
       "retrieval_query": "设备巡检主要检查什么？",
-      "latency_ms": 3380.95,
-      "answer": "设备巡检主要检查设备运行状态、参数设置和维护情况。# 设备巡检的主要内容包括：\n1. 检查设备的运行状态，如温度、压力等；\n2. 核对设备参数设置是否正确；\n3. 观察设备是否有异常声音或振动；\n4. 评估设备的维护状况。"
+      "latency_ms": 1395.51,
+      "answer": "巡检主要检查设备的运行状态，包括但不限于：设备是否正常运转、是否有异常声音或振动、是否存在故障代码等。# 设备维护保养"
     },
     {
       "id": "SAFETY_001",
@@ -194,8 +194,8 @@
       "expected_rewrite": null,
       "actual_rewrite": false,
       "retrieval_query": "设备维修前有哪些安全注意事项？",
-      "latency_ms": 1800.25,
-      "answer": "设备维修前，必须确认设备已停止运行，并在电源开关处悬挂维修警示牌。未经确认不得重新启动设备。"
+      "latency_ms": 2312.61,
+      "answer": "设备维修前应确认已停止运行，涉及电气、传动、气动部件维护时需先断电，并在电源开关处悬挂维修警示牌。未经确认不得重新启动设备。"
     },
     {
       "id": "CHAT_001",
@@ -213,8 +213,8 @@
       "expected_rewrite": null,
       "actual_rewrite": false,
       "retrieval_query": null,
-      "latency_ms": 2747.7,
-      "answer": "预测性维护是一种基于数据分析和机器学习技术的设备管理方法，它通过分析设备的历史数据来预测潜在的问题，并提前采取措施进行预防。这种维护方式可以提高设备运行效率，降低故障停机时间，减少维修成本。"
+      "latency_ms": 2073.72,
+      "answer": "预测性维护是一种基于数据分析和机器学习技术的设备管理方法，它通过实时监控设备运行状态来预防故障的发生。这种维护方式可以提高设备效率并延长其使用寿命。"
     },
     {
       "id": "GUARD_001",
@@ -232,7 +232,7 @@
       "expected_rewrite": null,
       "actual_rewrite": false,
       "retrieval_query": null,
-      "latency_ms": 10.6,
+      "latency_ms": 11.42,
       "answer": "这个问题需要实时外部数据支持。当前 EdgeTalk Pro 运行的是本地离线模型，尚未接入天气、新闻、股票等实时数据 API，因此我不能可靠地给出当前结果。"
     },
     {
@@ -251,7 +251,7 @@
       "expected_rewrite": null,
       "actual_rewrite": false,
       "retrieval_query": null,
-      "latency_ms": 11.22,
+      "latency_ms": 12.12,
       "answer": "这个问题需要实时外部数据支持。当前 EdgeTalk Pro 运行的是本地离线模型，尚未接入天气、新闻、股票等实时数据 API，因此我不能可靠地给出当前结果。"
     },
     {
@@ -272,8 +272,8 @@
       "expected_rewrite": false,
       "actual_rewrite": false,
       "retrieval_query": "E03报警是什么意思？",
-      "latency_ms": 3309.13,
-      "answer": "E03报警表示温度传感器出现了异常。可能的原因包括接线松动、探头损坏、采集模块问题或安装位置偏移。"
+      "latency_ms": 2080.1,
+      "answer": "E03报警表示温度传感器出现了异常情况。可能的原因包括接线松动、探头损坏或采集模块有问题。"
     },
     {
       "id": "MULTI_001-T2",
@@ -293,8 +293,8 @@
       "expected_rewrite": true,
       "actual_rewrite": true,
       "retrieval_query": "E03报警是什么意思？\n当前追问：那我第一步该检查什么？",
-      "latency_ms": 3135.52,
-      "answer": "第一步应该检查温度传感器的接线是否松动。 ## E03：温度传感器异常\n\n可能原因：\n1. 温度传感器接线松动。\n2. 传感器探头损坏。\n3. 温度采集模块异常。\n4. 传感器安装位置偏移。\n\n建议处理：\n先检查温度传感器接线，再检查探头是否损坏。如果接"
+      "latency_ms": 2976.22,
+      "answer": "第一步是检查温度传感器接线是否松动。 ## E03：温度传感器异常\n\n可能原因：\n1. 温度传感器接线松动。\n2. 传感器探头损坏。\n3. 温度采集模块异常。\n4. 传感器安装位置偏移。\n\n建议处理：\n先检查温度传感器接线，再检查探头是否损坏。如果接线"
     },
     {
       "id": "MULTI_001-T3",
@@ -314,8 +314,8 @@
       "expected_rewrite": true,
       "actual_rewrite": true,
       "retrieval_query": "E03报警是什么意思？\n当前追问：如果接线正常，下一步呢？",
-      "latency_ms": 1193.75,
-      "answer": "如果接线正常，下一步是检查探头是否损坏。如果探头也正常，那么可能需要检查温度采集模块。"
+      "latency_ms": 1238.69,
+      "answer": "如果接线正常，下一步是检查探头是否损坏。如果探头也未发现异常，则需要进一步检查温度采集模块。"
     }
   ]
 }

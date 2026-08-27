@@ -1,0 +1,35 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y \
+        --no-install-recommends \
+        build-essential \
+        cmake \
+        libopenblas-dev \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements-api.txt .
+
+RUN pip install --upgrade pip \
+    && pip install -r requirements-api.txt
+
+COPY config ./config
+COPY src ./src
+COPY scripts ./scripts
+COPY eval ./eval
+
+RUN mkdir -p \
+    /app/data/memory \
+    /app/models \
+    /app/reports
+
+EXPOSE 8000
+
+CMD ["python", "-m", "uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
