@@ -1,428 +1,553 @@
-# EdgeTalk-AI-Assistant Architecture
+# EdgeTalk Pro Architecture
 
-## 1. 项目概述
+## 1. Architecture Overview
 
-EdgeTalk-AI-Assistant 是一个面向工业设备维护场景的本地化 AI 助手 PoC Demo。
+EdgeTalk Pro 是一个面向工业设备维护场景的本地化 AI 助手 PoC。
 
-项目目标是验证企业知识库问答在工业设备维护场景中的可行性，支持故障码查询、维修 SOP 查询、点检规范查询、安全规范问答和多轮维护对话。
+系统采用前后端分离架构，以 FastAPI 作为统一应用服务入口，通过 Agent Router 对用户请求进行能力分流，并结合 Industrial RAG、Local LLM、Session Memory、Query Rewrite 和 Realtime Guardrail 完成工业知识问答与多轮故障排查。
 
-项目核心能力包括：
-
-- 工业知识库管理
-- RAG 检索增强问答
-- Agent 工具路由
-- 本地 LLM 推理
-- SQLite / MySQL 会话记忆
-- FastAPI 接口服务
-- ASR 语音输入
-- TTS 语音输出
-- Docker / Docker Compose 部署验证
+项目同时集成 PoC Evaluation 与 Report Workflow，用于对 AI Demo 的核心能力进行自动化验证和验收。
 
 ---
 
-## 2. 整体架构
+## 2. Overall Architecture
 
-项目整体链路如下：
+```mermaid
+flowchart TB
 
-```text
-用户输入
-  ├── 文本输入
-  └── 音频输入
-        ↓
-ASR 语音识别
-        ↓
-Agent 工具路由
-        ↓
-RAG 知识库检索
-        ↓
-本地 LLM 生成回答
-        ↓
-Memory 保存会话
-        ↓
-文本回答 / TTS 语音输出
-```
+    subgraph Presentation["Presentation Layer"]
+        Browser[User / Browser]
+        React[React + Ant Design]
+        Nginx[Nginx]
+    end
 
-API 服务链路如下：
+    subgraph Application["Application Layer"]
+        API[FastAPI]
+        Agent[Agent Router]
+    end
 
-```text
-Client / curl / 前端 / PoC 测试工具
-        ↓
-FastAPI
-        ↓
-/rag-chat      → RAG 检索问答
-/agent-chat    → Agent 工具调用问答
-/memory/{id}   → 会话记录查询
-/health        → 服务健康检查
-        ↓
-SQLite / MySQL
+    subgraph AI["AI Capability Layer"]
+        RAG[Industrial RAG]
+        LLM[Local Qwen GGUF]
+        Guard[Realtime Guardrail]
+        Memory[Session Memory]
+        Rewrite[Follow-up Detection + Query Rewrite]
+    end
+
+    subgraph Knowledge["Knowledge Layer"]
+        Retriever[Embedding Retriever]
+        KB[Industrial Knowledge Base]
+    end
+
+    subgraph Evaluation["PoC Evaluation Layer"]
+        Cases[Test Cases]
+        Eval[Evaluation Runner]
+        Metrics[PASS / FAIL / Latency]
+        Report[PoC Report]
+    end
+
+    Browser --> Nginx
+    Nginx --> React
+    Nginx --> API
+
+    API --> Agent
+
+    Agent --> RAG
+    Agent --> LLM
+    Agent --> Guard
+    Agent --> Memory
+
+    Memory --> Rewrite
+    Rewrite --> RAG
+
+    RAG --> Retriever
+    Retriever --> KB
+
+    Cases --> Eval
+    Eval --> API
+    Eval --> Metrics
+    Metrics --> Report
 ```
 
 ---
 
-## 3. 核心模块说明
+## 3. Presentation Layer
 
-### 3.1 ASR 模块
+Web 前端基于：
 
-文件位置：
+- React
+- Vite
+- Ant Design
+- Axios
+
+构建。
+
+主要页面包括：
 
 ```text
-src/asr/whisper_asr.py
+AI Assistant
+Knowledge Base
+PoC Evaluation
+System Status
 ```
 
-作用：
+AI Assistant 页面负责：
 
-- 将音频文件转换为文本；
-- 为后续 Agent、RAG 和 LLM 提供文本输入；
-- 当前基于 faster-whisper 实现。
+- 用户问题输入
+- 多轮会话展示
+- Session 管理
+- RAG 检索依据展示
+- Query Rewrite 展示
+- Guardrail 状态展示
 
-当前方案：
-
-- 使用 faster-whisper；
-- 当前更适合使用 small 模型进行项目展示；
-- tiny 模型速度更快，但中文识别稳定性较弱。
+生产环境中，React 构建结果由 Nginx 提供。
 
 ---
 
-### 3.2 RAG 模块
+## 4. Application Layer
 
-文件位置：
+FastAPI 是 EdgeTalk Pro 的统一服务入口。
 
-```text
-src/rag/
-```
+主要接口包括：
 
-主要文件：
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/health` | 系统健康状态 |
+| POST | `/chat` | Local LLM Chat |
+| POST | `/rag-chat` | Industrial RAG |
+| POST | `/agent-chat` | Agent Chat |
+| GET | `/memory/{session_id}` | Session Memory |
+| GET | `/evaluation/latest` | 最新 PoC Evaluation |
+| GET | `/evaluation/report` | PoC Report |
+| GET | `/evaluation/report/download` | 下载 PoC Report |
 
-```text
-document_loader.py
-simple_retriever.py
-embedding_retriever.py
-```
-
-作用：
-
-- 加载工业设备维护知识库；
-- 将文档切分为可检索片段；
-- 支持 TF-IDF baseline 和 Embedding Retriever；
-- 根据用户问题检索相关故障码、SOP、点检、安全规范内容。
-
-知识库目录：
-
-```text
-data/knowledge/industrial/
-```
-
-当前优化：
-
-- 使用 min_score 过滤低相关内容；
-- 使用 top_k 控制返回片段数量；
-- 对故障码类问题加入规则增强；
-- 对不同知识来源加入 source boost；
-- 优化文档切分，避免不同故障码内容混在同一 chunk 中。
+其中 `/agent-chat` 是 Web Demo 的主要问答入口。
 
 ---
 
-### 3.3 Agent 模块
+## 5. Agent Router
 
-文件位置：
+Agent Router 根据用户问题选择不同能力路径。
 
-```text
-src/agent/
-```
-
-主要文件：
+当前核心路由为：
 
 ```text
-agent_core.py
-tools.py
-```
-
-作用：
-
-- 判断用户问题类型；
-- 决定是否调用知识库检索工具；
-- 将工具返回结果交给 LLM 生成回答；
-- 将用户问题和助手回答写入 Memory。
-
-当前工具包括：
-
-```text
-list_knowledge_files
+工业设备知识问题
+        ↓
 search_knowledge
-get_project_status
+        ↓
+Industrial RAG
 ```
-
-Agent 路由逻辑：
 
 ```text
-故障码 / SOP / 点检 / 安全规范类问题
-→ 调用 search_knowledge
-
-普通问题
-→ 直接走基础回答逻辑
-
-项目状态相关问题
-→ 调用 get_project_status
+稳定通用知识问题
+        ↓
+chat
+        ↓
+Local LLM
 ```
+
+```text
+天气 / 新闻 / 股票 / 汇率等实时数据问题
+        ↓
+realtime_guard
+        ↓
+能力边界提示
+```
+
+Agent Router 将知识检索、本地模型与能力边界控制统一在同一交互入口下。
 
 ---
 
-### 3.4 LLM 模块
+## 6. Industrial RAG
 
-文件位置：
+Industrial RAG 负责从本地工业知识库中检索与用户问题相关的内容。
 
-```text
-src/llm/local_llm.py
-```
-
-作用：
-
-- 加载本地 GGUF 模型；
-- 基于用户问题和 RAG context 生成回答；
-- 支持本地化、离线化的问答能力。
-
-当前方案：
+当前知识库主要包含：
 
 ```text
-llama-cpp-python + GGUF
+equipment_manual.txt
+fault_codes.txt
+maintenance_sop.txt
+inspection_checklist.txt
+safety_rules.txt
 ```
 
-模型文件不上传 GitHub，需要用户自行放入：
+知识库覆盖：
+
+- 设备基础说明
+- 故障码
+- 维修 SOP
+- 每日巡检
+- 安全规范
+
+### Retrieval Workflow
+
+```text
+User Query
+    ↓
+Document Loader
+    ↓
+Heading-aware Chunking
+    ↓
+Embedding
+    ↓
+Similarity Retrieval
+    ↓
+Rule Boost
+    ↓
+Top Knowledge Chunk
+    ↓
+Local LLM
+```
+
+Embedding 模型：
+
+```text
+sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+```
+
+当前主要 Retriever 为 Embedding Retriever，同时保留 TF-IDF Retriever 作为基础对照实现。
+
+---
+
+## 7. Retrieval Explainability
+
+RAG 返回结果不仅包含回答，还保留对应的知识检索信息。
+
+主要字段包括：
+
+```text
+file
+source
+chunk_id
+text
+score
+raw_score
+boost
+```
+
+Web 页面进一步展示：
+
+- Tool
+- Retriever
+- Knowledge Source
+- Retrieval Score
+- Raw Score
+- Rule Boost
+- Chunk ID
+
+其中：
+
+```text
+Retrieval Score
+```
+
+表示知识检索相关度，而不是模型回答置信度。
+
+---
+
+## 8. Session Memory
+
+Session Memory 用于保存不同会话中的用户消息与 AI 回复。
+
+默认存储：
+
+```text
+SQLite
+```
+
+同时项目保留：
+
+```text
+MySQL
+```
+
+Memory Backend 实现，可通过 Memory Factory 切换。
+
+基本结构：
+
+```text
+session_id
+role
+content
+created_at
+```
+
+不同 `session_id` 之间的对话互相隔离。
+
+---
+
+## 9. Multi-turn RAG
+
+EdgeTalk Pro 的 Memory 不仅用于保存历史记录，还会参与后续 RAG 检索。
+
+典型场景：
+
+```text
+Turn 1:
+E03报警是什么意思？
+
+Turn 2:
+那我第一步该检查什么？
+
+Turn 3:
+如果接线正常，下一步呢？
+```
+
+第二、三轮问题本身缺少完整的故障实体。
+
+系统通过：
+
+```text
+Session History
+        ↓
+Follow-up Detection
+        ↓
+Industrial Context Anchor
+        ↓
+Query Rewrite
+        ↓
+Embedding Retrieval
+```
+
+重新构建包含上下文的 Retrieval Query。
+
+例如：
+
+```text
+E03报警是什么意思？
+当前追问：那我第一步该检查什么？
+```
+
+再将该 Query 用于知识检索，从而保持多轮故障排查语义连续性。
+
+---
+
+## 10. Local LLM
+
+当前 Web 主链使用本地 GGUF 模型：
 
 ```text
 models/qwen1.5b.gguf
 ```
 
----
-
-### 3.5 Memory 模块
-
-文件位置：
+推理框架：
 
 ```text
-src/memory/
+llama-cpp-python
 ```
 
-作用：
-
-- 保存用户问题和助手回答；
-- 支持根据 session_id 查询历史会话；
-- 为多轮维护问答提供基础记忆能力。
-
-当前支持两种后端：
-
-| 后端 | 说明 |
-|---|---|
-| SQLite | 默认本地存储，适合本地 Demo 和轻量运行 |
-| MySQL | 可选存储，适合模拟企业部署和云端数据库场景 |
-
-后端切换方式：
+Local LLM 主要承担两类任务：
 
 ```text
-MEMORY_BACKEND=sqlite
-MEMORY_BACKEND=mysql
+Industrial RAG
+→ 根据检索上下文生成回答
 ```
+
+以及：
+
+```text
+General Chat
+→ 处理不需要工业知识库的稳定通用问题
+```
+
+模型权重不提交到 Git 仓库。
 
 ---
 
-### 3.6 TTS 模块
+## 11. Realtime Guardrail
 
-文件位置：
+本地 LLM 不具备可靠的实时互联网数据访问能力。
 
-```text
-src/tts/windows_tts.py
-```
-
-作用：
-
-- 将 LLM 生成的文本回答转换为语音文件；
-- 用于验证完整语音助手链路。
-
-当前方案：
+因此对于：
 
 ```text
-Windows System.Speech
+天气
+新闻
+股票
+汇率
+航班
+交通
 ```
 
-当前限制：
+等实时问题，Agent 不直接调用 Local LLM 生成具体实时数据，而是进入：
 
-- 适合 Windows / WSL 开发环境；
-- 不适合直接部署到 Jetson；
-- 后续 Jetson 部署时需要替换为 Linux 可用 TTS 方案。
+```text
+realtime_guard
+```
+
+并返回能力边界说明。
+
+这种设计将：
+
+```text
+模型生成能力
+```
+
+与：
+
+```text
+系统真实数据能力
+```
+
+进行区分。
 
 ---
 
-### 3.7 Pipeline 模块
+## 12. PoC Evaluation
 
-文件位置：
+项目内置 PoC Evaluation Workflow，用于对 Demo 的核心能力进行自动化验证。
+
+主要测试维度：
 
 ```text
-src/pipeline.py
+故障诊断
+维修 SOP
+巡检规范
+安全规范
+普通问答
+能力边界
+多轮问答
 ```
 
-作用：
+Evaluation Runner 会记录：
 
-- 编排 ASR、LLM、TTS 等模块；
-- 支持文本输入和音频输入；
-- 用于验证从输入到输出的完整链路。
+- PASS / FAIL
+- Tool
+- Knowledge Source
+- Query Rewrite
+- Latency
+- Acceptance
 
-典型链路：
+当前确定性测试基线：
+
+```text
+Test Cases: 12
+Passed: 12
+Failed: 0
+Acceptance: PASS
+```
+
+该结果仅代表当前确定性 PoC 测试集通过情况。
+
+---
+
+## 13. PoC Report
+
+Evaluation 结果可以进一步生成 PoC Report。
+
+流程：
+
+```text
+eval/test_cases.json
+        ↓
+eval/run_eval.py
+        ↓
+eval/results/latest.json
+        ↓
+PoC Report Generator
+        ↓
+latest_poc_report.md
+```
+
+报告包含：
+
+- 项目概述
+- PoC 验收目标
+- 总体评估结果
+- 分类测试结果
+- 性能指标
+- 测试明细
+- 能力边界
+- 验收结论
+- 后续建议
+
+Web 页面支持报告预览与下载。
+
+---
+
+## 14. Production Architecture
+
+生产版本通过 Docker Compose 进行统一编排。
+
+```text
+Browser
+   ↓
+localhost:8080
+   ↓
+Nginx
+   ├── React Static Files
+   │
+   └── /api/*
+          ↓
+      FastAPI :8000
+          ↓
+      Agent Router
+       /    |    \
+     RAG   LLM   Guardrail
+```
+
+Docker 服务主要包含：
+
+```text
+edgetalk-pro-web
+edgetalk-pro-api
+```
+
+默认 Memory Backend 为：
+
+```text
+SQLite
+```
+
+---
+
+## 15. Persistent Data
+
+以下数据通过 Volume 与 Container 生命周期解耦：
+
+```text
+Local Models
+Industrial Knowledge Base
+SQLite Memory
+Evaluation Results
+PoC Reports
+Hugging Face Cache
+```
+
+因此：
+
+```text
+Container Restart
+```
+
+不会删除业务数据与模型文件。
+
+---
+
+## 16. Voice Extension
+
+EdgeTalk 同时保留早期构建的完整语音交互能力：
 
 ```text
 Audio
-→ ASR
-→ Text
-→ Agent / RAG
-→ LLM
-→ Reply
-→ TTS
-→ Audio Output
+ ↓
+ASR
+ ↓
+Agent
+ ↓
+RAG / Local LLM
+ ↓
+Memory
+ ↓
+TTS
 ```
 
----
-
-### 3.8 API 模块
-
-文件位置：
+对应模块包括：
 
 ```text
-src/api/app.py
+src/asr/
+src/audio/
+src/tts/
 ```
-
-作用：
-
-- 使用 FastAPI 对外提供服务接口；
-- 支持 RAG 问答、Agent 问答和 Memory 查询；
-- 便于前端集成、PoC 测试和部署验证。
-
-核心接口：
-
-| 接口 | 作用 |
-|---|---|
-| GET /health | 服务健康检查 |
-| POST /chat | 基础文本问答 |
-| POST /rag-chat | RAG 检索增强问答 |
-| POST /agent-chat | Agent 工具调用问答 |
-| GET /memory/{session_id} | 查询会话历史 |
-
-当前请求体字段以 `text` 为主，例如：
-
-```json
-{
-  "text": "E03 报警是什么意思？",
-  "retriever_type": "embedding"
-}
-```
-
----
-
-## 4. 部署架构
-
-### 4.1 本地运行
-
-本地开发环境：
-
-```text
-Windows + WSL / Ubuntu
-Python 3.11
-venv 虚拟环境
-```
-
-适合验证：
-
-- RAG
-- Agent
-- Memory
-- FastAPI
-- 本地 LLM
-- ASR / TTS 完整链路
-
----
-
-### 4.2 Docker 部署
-
-Docker 主要用于验证轻量 API 服务部署。
-
-```text
-Dockerfile
-requirements-api.txt
-FastAPI
-RAG / Agent / Memory
-```
-
-当前 Docker API 版本保持轻量，不强制加载完整 ASR / TTS / LLM 链路，以降低部署复杂度。
-
----
-
-### 4.3 Docker Compose + MySQL
-
-Docker Compose 用于验证：
-
-```text
-FastAPI 服务 + MySQL 数据库
-```
-
-主要目的：
-
-- 验证 MySQLMemory；
-- 模拟企业部署中的 API + 数据库结构；
-- 为后续 PoC 测试和云端部署打基础。
-
----
-
-### 4.4 Jetson 边缘部署计划
-
-后续计划部署到 Jetson Orin Nano，验证边缘端工业 AI 助手运行效果。
-
-需要重点处理：
-
-- ARM 架构依赖适配；
-- 本地 LLM 推理性能；
-- ASR 模型速度；
-- WindowsTTS 替换为 Linux TTS；
-- 边缘端内存和响应时间测试。
-
----
-
-## 5. 当前完成情况
-
-| 模块 | 状态 |
-|---|---|
-| 工业知识库 | 已完成 |
-| TF-IDF RAG | 已完成 |
-| Embedding RAG | 已完成 |
-| Agent 工具路由 | 已完成 |
-| SQLite Memory | 已完成 |
-| MySQL Memory | 已完成 |
-| FastAPI API | 已完成 |
-| Docker API 部署 | 已完成 |
-| Docker Compose + MySQL | 已验证 |
-| ASR / LLM / TTS 全链路 | 已跑通 |
-| Jetson 部署 | 后续计划 |
-
----
-
-## 6. 当前限制
-
-当前项目仍属于 PoC Demo，主要限制包括：
-
-1. 知识库规模较小，主要用于场景验证；
-2. 前端页面暂未实现，当前主要通过命令行和 API 测试；
-3. 实时麦克风输入暂未作为核心能力，当前以音频文件输入为主；
-4. TTS 当前依赖 Windows System.Speech，后续 Jetson 部署需要替换；
-5. Jetson 实机部署暂未完成；
-6. RAG 评估仍以典型问题验证为主，后续可扩展为系统化 PoC 评测。
-
----
-
-## 7. 架构价值
-
-本项目架构的核心价值在于：
-
-1. 从工业客户场景出发，而不是做泛用聊天机器人；
-2. 通过 RAG 降低本地模型幻觉风险；
-3. 通过 Agent 工具路由增强业务交互能力；
-4. 通过 Memory 支持多轮维护问答；
-5. 通过 FastAPI 提供可集成接口；
-6. 通过 Docker 和 MySQL 验证企业部署可行性；
-7. 为后续 Jetson 边缘部署和 PoC 评估工具预留扩展空间。
