@@ -205,7 +205,35 @@ Response
 
 ---
 
-## 3. 技术栈
+## 3. Web Demo
+
+### 3.1 多轮 RAG 与回答依据
+
+EdgeTalk 支持基于 **Session Memory** 的多轮工业维护问答，并通过 **Follow-up Detection + Query Rewrite** 将历史故障实体补充到后续检索请求中。
+
+右侧回答依据区域展示实际使用的 **Tool、Embedding Retriever、多轮检索改写、Knowledge Source 与检索相关度**，用于增强 RAG 检索过程的可解释性。
+
+![Multi-turn RAG](docs/images/rag-multiturn.png)
+
+---
+
+### 3.2 Realtime Guardrail
+
+对于天气、新闻、股票等依赖实时外部数据的问题，系统通过 **Guardrail** 判断当前模型能力边界，避免本地离线 LLM 生成不可靠的实时信息。
+
+![Realtime Guardrail](docs/images/guardrail.png)
+
+---
+
+### 3.3 System Status
+
+System Status 页面展示 EdgeTalk Pro 核心 AI 组件的运行状态，包括 **API、RAG、Agent、Local LLM、Embedding Retriever 与 Memory**。
+
+![System Status](docs/images/system-status.png)
+
+---
+
+## 4. 技术栈
 
 | 模块 | 技术 |
 |---|---|
@@ -223,7 +251,7 @@ Response
 
 ---
 
-## 4. 项目结构
+## 5. 项目结构
 
 ```text
 EdgeTalk-AI-Assistant/
@@ -304,7 +332,7 @@ EdgeTalk-AI-Assistant/
 
 ---
 
-## 5. Web Dashboard
+## 6. Web Dashboard
 
 EdgeTalk Pro 提供面向 Demo 展示的 Web 交互界面。
 
@@ -365,7 +393,7 @@ E03 报警是什么意思？
 
 ---
 
-## 6. 核心 API
+## 7. 核心 API
 
 ### Health Check
 
@@ -448,7 +476,7 @@ POST /chat
 
 ---
 
-## 7. Docker 部署
+## 8. Docker 部署
 
 项目支持通过 **Docker Compose** 启动 Web 与 API 服务。
 
@@ -484,7 +512,7 @@ Agent / RAG / Local LLM / Memory
 
 ---
 
-## 8. 本地运行
+## 9. 本地运行
 
 ### 创建 Python 环境
 
@@ -537,7 +565,7 @@ http://localhost:5173
 
 ---
 
-## 9. 项目定位
+## 10. 项目定位
 
 EdgeTalk 关注的是企业 AI 应用在真实业务场景中的完整落地链路：
 
