@@ -1,358 +1,535 @@
-# EdgeTalk Pro
+# EdgeTalk-AI-Assistant
 
-> 面向工业设备维护场景的本地化 AI 助手 PoC
+EdgeTalk 是一个面向 **工业设备维护场景** 的本地化 AI 助手 PoC Demo，围绕设备故障诊断、维修 SOP、日常点检和安全规范等典型任务，构建了从 **知识检索 → Agent 路由 → 本地 LLM → 多轮记忆 → Web 交互** 的完整 AI 应用链路。
 
-EdgeTalk Pro 是一个面向工业设备故障诊断与维护支持场景的 AI 应用 PoC。
-
-项目围绕 **故障码查询、维修 SOP、每日巡检、安全规范和多轮故障排查** 等典型工业场景，构建了从知识检索、Agent 路由、多轮上下文理解，到 PoC 自动化评估、报告生成和 Docker 容器化交付的完整链路。
-
-系统采用本地 Qwen GGUF 模型，结合 Embedding RAG、Session Memory、Query Rewrite 和 Guardrail，在不依赖外部大模型 API 的情况下完成工业知识问答与能力边界控制。
+项目重点验证企业知识场景下的大模型应用工程能力，包括 **Embedding RAG、Agent、Memory、多轮 Query Rewrite、Guardrail、FastAPI、React、Docker**，并保留 ASR/TTS 语音交互能力。
 
 ---
 
 ## 1. 核心能力
 
-| 能力 | 实现 |
-| --- | --- |
-| 工业知识问答 | Embedding RAG + Industrial Knowledge Base |
-| Agent 路由 | `search_knowledge` / `chat` / `realtime_guard` |
-| 多轮故障排查 | Session Memory + Follow-up Detection + Query Rewrite |
-| 回答依据展示 | Source / Retrieval Score / Raw Score / Rule Boost / Chunk ID |
-| 本地大模型 | Qwen GGUF + llama-cpp-python |
-| 能力边界控制 | Realtime Guardrail |
-| PoC 自动验收 | Test Cases + PASS/FAIL + Latency |
-| PoC 报告 | 自动生成并支持 Web 预览 / 下载 |
-| Web Demo | React + Ant Design + FastAPI |
-| 容器化交付 | Docker Compose + Nginx |
-| 会话存储 | SQLite，支持 MySQL 扩展 |
+### 1.1 Industrial RAG
+
+围绕工业设备维护场景构建本地知识库，覆盖：
+
+- 设备故障码
+- 维修 SOP
+- 日常点检规范
+- 安全操作规范
+- 设备说明信息
+
+使用 **SentenceTransformer Embedding** 进行语义检索，并保留 TF-IDF 作为基础对比方案。
+
+针对设备故障码等结构化特征，引入文档分段和规则 Boost，提高工业知识检索的准确性。
 
 ---
 
-## 2. 业务场景
+### 1.2 Agent Routing
 
-EdgeTalk Pro 当前主要覆盖：
+通过 **Agent** 根据用户问题选择不同处理路径：
 
-- 设备故障码查询与故障原因解释
-- 维修 SOP 查询
-- 每日点检规范查询
-- 安全操作规范查询
-- 基于 Session Memory 的多轮故障排查
-- 工业知识来源与检索依据展示
-- AI Demo PoC 自动化测试与验收
+- 工业设备问题 → RAG 知识检索
+- 普通知识问题 → Local LLM
+- 实时信息问题 → Guardrail
+- 会话历史 → Memory
 
-典型交互：
-
-```text
-用户：E03 报警是什么意思？
-
-EdgeTalk：
-E03 表示温度传感器异常……
-依据：fault_codes.txt
-
-用户：那我第一步该检查什么？
-
-系统：
-识别为上一轮 E03 的追问
-→ Query Rewrite
-→ 继续检索 E03 相关知识
-→ 返回对应排查步骤
-```
+将不同能力统一在一套对话入口中，避免所有问题都直接进入大模型。
 
 ---
 
-## 3. 系统架构
+### 1.3 Multi-turn RAG
 
-```mermaid
-flowchart TD
-
-    U[User / Browser] --> N[Nginx + React]
-    N --> API[FastAPI]
-
-    API --> A[Agent Router]
-
-    A --> R[Industrial RAG]
-    A --> L[Local LLM]
-    A --> G[Realtime Guardrail]
-
-    R --> E[Embedding Retriever]
-    E --> K[Industrial Knowledge Base]
-
-    A --> M[Session Memory]
-    M --> Q[Follow-up Detection / Query Rewrite]
-    Q --> R
-
-    API --> EV[PoC Evaluation]
-    EV --> RP[PoC Report]
-```
-
-生产环境访问链路：
-
-```text
-Browser
-   ↓
-Nginx :8080
-   ├── React Static Files
-   └── /api/*
-          ↓
-      FastAPI :8000
-          ↓
-      Agent Router
-     /      |       \
-   RAG   Local LLM  Guardrail
-```
-
----
-
-## 4. 核心技术实现
-
-### Industrial RAG
-
-工业知识库包含设备说明、故障码、维修 SOP、巡检清单和安全规范等文档。
-
-系统使用：
-
-```text
-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
-```
-
-生成 Embedding 并进行语义检索，同时针对故障码等结构化实体加入规则增强。
-
----
-
-### Multi-turn RAG
-
-Session Memory 不仅用于保存历史消息，还参与后续检索。
+支持基于 `session_id` 的多轮工业维护问答。
 
 对于：
 
 ```text
-E03报警是什么意思？
+E03 报警是什么意思？
 ↓
-那我第一步该检查什么？
+那我第一步应该检查什么？
+↓
+如果接线正常，下一步呢？
 ```
 
-系统通过：
+系统会结合历史会话识别当前问题属于追问，并通过 **Query Rewrite** 将上下文中的设备故障实体补充到当前检索请求中。
+
+例如：
 
 ```text
-Session History
-↓
-Follow-up Detection
-↓
-Industrial Context Anchor
-↓
-Query Rewrite
-↓
-Embedding Retrieval
+历史问题：E03 报警是什么意思？
+当前追问：那我第一步应该检查什么？
 ```
 
-将缺少明确实体的追问重新关联到上一轮工业上下文。
+再使用改写后的 Query 进行 Embedding Retrieval，使 Memory 真正参与后续 RAG 检索。
 
 ---
 
-### Agent Router
+### 1.4 Session Memory
 
-Agent 根据问题类型选择不同处理路径：
+使用 **SQLite** 保存用户与助手的多轮对话记录，并支持切换到 **MySQL** 存储。
 
-```text
-工业知识问题
-→ search_knowledge
-→ Industrial RAG
+Memory 主要用于：
 
-稳定通用知识
-→ chat
-→ Local LLM
-
-实时信息问题
-→ realtime_guard
-```
-
-对于天气、新闻、股票、汇率等需要实时外部数据的问题，系统不会直接让本地模型生成未经验证的信息。
+- 保存不同 Session 的历史消息
+- 支持多轮上下文查询
+- 为 Follow-up Detection 和 Query Rewrite 提供历史信息
+- 区分不同设备维护会话
 
 ---
 
-### RAG Explainability
+### 1.5 Local LLM
 
-Web 页面可展示当前回答的检索依据：
+使用 **llama-cpp-python + GGUF** 在本地运行 Qwen 模型。
 
-- Tool
+Local LLM 主要承担：
+
+- RAG 检索结果组织
+- 普通知识问答
+- 多轮回答生成
+- 离线场景下的文本生成
+
+本地模型文件不提交至 Git 仓库。
+
+---
+
+### 1.6 Guardrail
+
+针对本地模型无法可靠获取的实时信息增加能力边界控制。
+
+例如：
+
+```text
+北京明天天气怎么样？
+```
+
+系统不会让本地模型直接生成可能失真的实时天气，而是返回当前能力限制：
+
+```text
+当前本地离线模型未接入天气等实时数据 API，
+因此无法可靠回答该问题。
+```
+
+Guardrail 用于处理天气、新闻、股票等依赖实时外部数据的问题。
+
+---
+
+### 1.7 RAG Explainability
+
+Web Dashboard 会展示回答对应的知识检索依据，包括：
+
+- Source
+- Chunk ID
 - Retriever
-- Knowledge Source
-- Retrieval Score
+- Final Score
 - Raw Score
 - Rule Boost
-- Chunk ID
-- Query Rewrite
+- Retrieved Text
 
-其中 Retrieval Score 表示知识检索相关度，并非模型回答置信度。
+其中 Score 表示 **检索相关度**，而不是模型回答置信度。
+
+对于多轮问题，还可以展示实际使用的 **Retrieval Query**，便于观察 Query Rewrite 结果。
 
 ---
 
-## 5. PoC Evaluation
+### 1.8 Voice Interaction
 
-项目内置自动化 PoC Evaluation Workflow，主要验证：
+项目保留完整语音交互链路：
 
-- Agent 路由
-- RAG 来源命中
+```text
+Audio
+  ↓
+ASR
+  ↓
+Agent
+  ↓
+RAG / Local LLM
+  ↓
+Memory
+  ↓
+TTS
+```
+
+使用：
+
+- **faster-whisper**：语音识别
+- **Windows System.Speech**：语音合成
+
+语音能力作为 Web 文本交互之外的扩展入口。
+
+---
+
+## 2. 系统架构
+
+```mermaid
+flowchart TD
+    A[React Web Dashboard] --> B[Nginx]
+    B --> C[FastAPI API]
+
+    C --> D[Agent Core]
+
+    D --> E[Industrial RAG]
+    D --> F[Local LLM]
+    D --> G[Realtime Guardrail]
+    D --> H[Session Memory]
+
+    E --> I[Embedding Retriever]
+    I --> J[Industrial Knowledge Base]
+
+    H --> K[(SQLite / MySQL)]
+
+    E --> F
+
+    L[Audio Input] --> M[ASR]
+    M --> D
+    F --> N[TTS]
+```
+
+核心文本链路：
+
+```text
+User
+ ↓
+React
+ ↓
+FastAPI
+ ↓
+Agent
+ ├── Industrial Question → Embedding RAG → Local LLM
+ ├── General Question    → Local LLM
+ └── Realtime Question   → Guardrail
+ ↓
+Memory
+ ↓
+Response
+```
+
+---
+
+## 3. 技术栈
+
+| 模块 | 技术 |
+|---|---|
+| Backend | **Python / FastAPI** |
+| Frontend | **React / Vite / Ant Design** |
+| RAG | **SentenceTransformer / TF-IDF** |
+| Embedding | **paraphrase-multilingual-MiniLM-L12-v2** |
+| Agent | **Rule-based Tool Routing** |
+| Local LLM | **llama-cpp-python / GGUF / Qwen** |
+| Memory | **SQLite / MySQL** |
+| Guardrail | **Capability Routing / Realtime Data Guard** |
+| ASR | **faster-whisper** |
+| TTS | **Windows System.Speech** |
+| Deployment | **Docker / Docker Compose / Nginx** |
+
+---
+
+## 4. 项目结构
+
+```text
+EdgeTalk-AI-Assistant/
+├── src/
+│   ├── agent/
+│   │   ├── agent_core.py
+│   │   └── tools.py
+│   │
+│   ├── api/
+│   │   └── app.py
+│   │
+│   ├── asr/
+│   │   └── whisper_asr.py
+│   │
+│   ├── audio/
+│   │   └── recorder.py
+│   │
+│   ├── llm/
+│   │   └── local_llm.py
+│   │
+│   ├── memory/
+│   │   ├── memory_factory.py
+│   │   ├── sqlite_memory.py
+│   │   └── mysql_memory.py
+│   │
+│   ├── pipeline/
+│   │   └── pipeline.py
+│   │
+│   ├── rag/
+│   │   ├── document_loader.py
+│   │   ├── embedding_retriever.py
+│   │   ├── simple_retriever.py
+│   │   └── compare_retriever.py
+│   │
+│   └── tts/
+│       └── windows_tts.py
+│
+├── frontend/
+│   ├── src/
+│   ├── Dockerfile.prod
+│   └── nginx.conf
+│
+├── data/
+│   └── knowledge/
+│       └── industrial/
+│
+├── eval/
+│   ├── run_eval.py
+│   └── test_cases.json
+│
+├── docs/
+│   ├── architecture.md
+│   ├── deployment.md
+│   └── solution/
+│       └── customer_needs.md
+│
+├── docker/
+│   └── Dockerfile.api
+│
+├── docker-compose.pro.yml
+├── requirements.txt
+├── requirements-api.txt
+└── README.md
+```
+
+### 核心模块职责
+
+| 模块 | 作用 |
+|---|---|
+| `agent/` | Tool Routing、Follow-up Detection 与多轮 Query Rewrite |
+| `rag/` | 工业知识加载、Embedding Retrieval 与检索优化 |
+| `memory/` | SQLite / MySQL 会话记忆 |
+| `llm/` | 本地 GGUF 模型推理 |
+| `api/` | FastAPI 服务入口与统一接口 |
+| `frontend/` | Web 对话、知识依据和系统状态展示 |
+| `eval/` | RAG 测试与效果验证 |
+| `asr/` / `tts/` | 语音输入与语音输出 |
+
+---
+
+## 5. Web Dashboard
+
+EdgeTalk Pro 提供面向 Demo 展示的 Web 交互界面。
+
+主要页面包括：
+
+### AI Assistant
+
+支持：
+
+- 工业设备维护问答
+- 多轮对话
+- 快捷场景问题
+- Session 管理
+- Markdown 回答展示
+
+典型问题：
+
+```text
+E03 报警是什么意思？
+
+那我第一步应该检查什么？
+
+如果接线正常，下一步呢？
+```
+
+---
+
+### Knowledge Base
+
+用于展示工业知识库及相关知识内容。
+
+知识场景包括：
+
 - 故障诊断
 - 维修 SOP
-- 巡检规范
+- 每日点检
 - 安全规范
-- Local LLM Chat
-- Realtime Guardrail
-- Multi-turn Query Rewrite
-
-当前确定性测试基线：
-
-| Metric | Result |
-| --- | ---: |
-| Test Cases | 12 |
-| Passed | 12 |
-| Failed | 0 |
-| Pass Rate | 100% |
-| Acceptance | PASS |
-
-> 以上结果仅表示当前确定性 PoC 测试集全部通过，不等同于生产环境整体准确率。
-
-Evaluation 结果同时记录响应延迟和分类表现，并可自动生成 PoC Evaluation Report。
 
 ---
 
-## 6. 技术栈
+### PoC Evaluation
 
-### Backend
-
-- Python 3.11
-- FastAPI
-- llama-cpp-python
-- SentenceTransformers
-- scikit-learn
-
-### AI
-
-- Qwen GGUF
-- Embedding RAG
-- Agent Router
-- Session Memory
-- Query Rewrite
-- Guardrail
-
-### Frontend
-
-- React
-- Vite
-- Ant Design
-- Axios
-
-### Storage
-
-- SQLite
-- MySQL（可选）
-
-### Deployment
-
-- Docker
-- Docker Compose
-- Nginx
-
-### Voice Extension
-
-项目同时保留：
-
-```text
-ASR
-→ Agent
-→ RAG / LLM
-→ TTS
-```
-
-作为扩展语音交互链路，当前 Web Docker 版本以文本交互为主要交付方式。
+用于展示 AI 应用 PoC 评估相关信息。
 
 ---
 
-## 7. Docker 快速启动
+### System Status
 
-### 环境要求
+用于查看：
 
-- Docker
-- docker-compose
-- 本地 Qwen GGUF 模型
-- Hugging Face Embedding 模型缓存
-
-模型默认路径：
-
-```text
-models/qwen1.5b.gguf
-```
-
-模型权重不提交至 Git 仓库。
-
-### 启动
-
-```bash
-./scripts/start_pro.sh
-```
-
-启动脚本会完成：
-
-```text
-Docker 环境检查
-↓
-API / Web Container 启动
-↓
-等待 FastAPI Healthy
-↓
-RAG Warm-up
-↓
-EdgeTalk Pro Ready
-```
-
-访问：
-
-```text
-http://localhost:8080
-```
-
-FastAPI：
-
-```text
-http://localhost:8000
-```
-
-API Docs：
-
-```text
-http://localhost:8000/docs
-```
-
-### 停止
-
-```bash
-./scripts/stop_pro.sh
-```
+- API 状态
+- RAG 状态
+- Retriever
+- Agent
+- Local LLM
+- Memory
+- 当前运行模式
 
 ---
 
-## 8. 开发环境
+## 6. 核心 API
 
-### Backend
+### Health Check
+
+```http
+GET /health
+```
+
+查看 API、RAG、Retriever、Agent、LLM 和 Memory 状态。
+
+---
+
+### RAG Chat
+
+```http
+POST /rag-chat
+```
+
+请求示例：
+
+```json
+{
+  "text": "E03 报警是什么意思？"
+}
+```
+
+返回：
+
+- Answer
+- Sources
+- Retriever Type
+- Latency
+
+---
+
+### Agent Chat
+
+```http
+POST /agent-chat
+```
+
+请求示例：
+
+```json
+{
+  "text": "E03 报警是什么意思？",
+  "session_id": "demo_session"
+}
+```
+
+返回内容包括：
+
+- Answer
+- Tool Used
+- Retriever Type
+- Sources
+- Retrieval Query
+- Follow-up Rewrite Status
+- Guardrail Status
+- Latency
+
+---
+
+### Session Memory
+
+```http
+GET /memory/{session_id}
+```
+
+查看指定 Session 的历史对话记录。
+
+---
+
+### Direct Local LLM
+
+```http
+POST /chat
+```
+
+用于直接调用本地 LLM。
+
+---
+
+## 7. Docker 部署
+
+项目支持通过 **Docker Compose** 启动 Web 与 API 服务。
 
 ```bash
+docker-compose \
+-f docker-compose.pro.yml \
+up -d
+```
+
+查看服务：
+
+```bash
+docker-compose \
+-f docker-compose.pro.yml \
+ps
+```
+
+部署架构：
+
+```text
+Browser
+   ↓
+Nginx
+   ↓
+React Web
+   ↓ /api
+FastAPI
+   ↓
+Agent / RAG / Local LLM / Memory
+```
+
+本地 GGUF 模型通过 Volume 挂载，不打包进 Docker Image，也不提交至 Git 仓库。
+
+---
+
+## 8. 本地运行
+
+### 创建 Python 环境
+
+```bash
+python3.11 -m venv .venv311
+
 source .venv311/bin/activate
-
-python -m uvicorn src.api.app:app \
-  --host 0.0.0.0 \
-  --port 8000
 ```
 
-### Frontend
+安装依赖：
+
+```bash
+pip install -r requirements-api.txt
+```
+
+---
+
+### 启动 FastAPI
+
+```bash
+python -m uvicorn \
+src.api.app:app \
+--host 0.0.0.0 \
+--port 8000
+```
+
+测试：
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+---
+
+### 启动前端
 
 ```bash
 cd frontend
+
 npm install
+
 npm run dev
 ```
 
-访问：
+开发环境默认访问：
 
 ```text
 http://localhost:5173
@@ -360,83 +537,22 @@ http://localhost:5173
 
 ---
 
-## 9. 主要 API
+## 9. 项目定位
 
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| GET | `/health` | 系统健康状态 |
-| POST | `/chat` | Local LLM Chat |
-| POST | `/rag-chat` | Industrial RAG |
-| POST | `/agent-chat` | Agent Chat |
-| GET | `/memory/{session_id}` | Session Memory |
-| GET | `/evaluation/latest` | 最新 PoC Evaluation |
-| GET | `/evaluation/report` | PoC Report |
-| GET | `/evaluation/report/download` | 下载 PoC Report |
-
----
-
-## 10. 项目结构
+EdgeTalk 关注的是企业 AI 应用在真实业务场景中的完整落地链路：
 
 ```text
-EdgeTalk-AI-Assistant/
-├── frontend/              # React Web
-├── src/
-│   ├── agent/             # Agent Router
-│   ├── api/               # FastAPI
-│   ├── llm/               # Local LLM
-│   ├── memory/            # SQLite / MySQL Memory
-│   ├── rag/               # Retriever / Document Loader
-│   └── report/            # PoC Report
-│
-├── data/
-│   └── knowledge/         # Industrial Knowledge Base
-│
-├── eval/                  # PoC Evaluation
-├── docker/                # Docker API Image
-├── scripts/               # Deployment / Smoke Test / Report
-├── docs/                  # Architecture / Deployment / Solution
-├── models/                # Local model placeholder
-├── docker-compose.pro.yml
-└── README.md
+业务问题如何映射为 AI 能力？
+如何通过 RAG 接入企业知识？
+如何通过 Agent 对不同问题进行能力路由？
+如何利用 Memory 支持多轮业务问答？
+如何处理模型无法可靠回答的问题？
+如何让检索过程具备可解释性？
+如何将 AI 能力封装为 API 和可演示的 Web Demo？
 ```
 
----
+项目重点体现：
 
-## 11. 当前能力边界
+**RAG + Agent + Memory + Local LLM + Guardrail + Web Demo + Deployment**
 
-当前版本定位为工业 AI PoC，而非生产级工业控制系统。
-
-主要边界：
-
-- 工业知识库覆盖范围有限
-- Evaluation Test Set 规模仍较小
-- 本地 LLM 能力受到模型规模限制
-- 实时天气、新闻等数据未接入外部 API
-- 当前系统不会直接控制真实工业设备
-- Jetson 边缘部署作为后续扩展方向，当前版本未完成实际部署
-
----
-
-## 12. 项目定位
-
-EdgeTalk Pro 不仅验证工业 RAG 问答能力，也覆盖 AI PoC 的完整交付流程：
-
-```text
-业务需求
-↓
-AI Solution Design
-↓
-RAG / Agent Demo
-↓
-Multi-turn & Guardrail
-↓
-Web Presentation
-↓
-PoC Evaluation
-↓
-PoC Report
-↓
-Docker Delivery
-```
-
-项目重点关注 AI 应用在实际 PoC 中的 **可解释性、能力边界、自动化验收与标准化交付**。
+并以工业设备维护作为具体业务场景，完成从需求拆解到可运行 PoC Demo 的完整实现。
